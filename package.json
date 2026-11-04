@@ -1,0 +1,11 @@
+{
+  "name": "third-wave-coffee-kiosk-root",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npm --prefix Third-Wave-Coffee-Kiosk run dev",
+    "build": "npm --prefix Third-Wave-Coffee-Kiosk run build",
+    "preview": "npm --prefix Third-Wave-Coffee-Kiosk run preview"
+  }
+}
+

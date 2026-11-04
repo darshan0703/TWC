@@ -1,0 +1,91 @@
+/**
+ * API Service for Third Wave Coffee (TWC) Conversational Cashier
+ * Connects Frontend Kiosk to FastAPI backend endpoints.
+ */
+
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+export async function startSession(sessionId = null) {
+  const res = await fetch(`${BASE_URL}/session/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+  if (!res.ok) throw new Error(`Failed to start session: ${res.statusText}`);
+  return await res.json();
+}
+
+export async function sendMessage({ sessionId, message, currentScreen, selectedCategory, selectedProductId }) {
+  const res = await fetch(`${BASE_URL}/message`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      session_id: sessionId,
+      message,
+      current_screen: currentScreen,
+      selected_category: selectedCategory,
+      selected_product_id: selectedProductId,
+    }),
+  });
+  if (!res.ok) throw new Error(`Message request failed: ${res.statusText}`);
+  return await res.json();
+}
+
+export async function updateScreenState({ sessionId, screen, category, productId }) {
+  try {
+    const res = await fetch(`${BASE_URL}/screen`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        screen,
+        category,
+        product_id: productId,
+      }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('[TWC API] Could not sync screen state:', err);
+    return null;
+  }
+}
+
+export async function transcribeAudio(audioBlob, filename = 'speech.webm') {
+  const formData = new FormData();
+  formData.append('file', audioBlob, filename);
+
+  const res = await fetch(`${BASE_URL}/stt`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`STT request failed: ${res.statusText}`);
+  return await res.json();
+}
+
+export async function fetchTTSAudio(text, voice = 'af_heart') {
+  const res = await fetch(`${BASE_URL}/tts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, voice }),
+  });
+  if (!res.ok) throw new Error(`TTS request failed: ${res.statusText}`);
+  return await res.blob();
+}
+
+export async function fetchCart(sessionId) {
+  const res = await fetch(`${BASE_URL}/cart/${sessionId}`);
+  if (!res.ok) throw new Error(`Failed to fetch cart: ${res.statusText}`);
+  return await res.json();
+}
+
+export async function confirmOrderAPI(sessionId, orderType = 'DINE_IN') {
+  const res = await fetch(`${BASE_URL}/order/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, order_type: orderType }),
+  });
+  if (!res.ok) throw new Error(`Order confirmation failed: ${res.statusText}`);
+  return await res.json();
+}
+
