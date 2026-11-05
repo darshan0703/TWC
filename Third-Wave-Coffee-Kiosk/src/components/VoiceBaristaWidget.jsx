@@ -34,6 +34,11 @@ export const VoiceBaristaWidget = () => {
 
   const { currentScreen, navigateTo } = useKiosk();
 
+  // On the welcome screen, suppress the voice widget and all error notifications completely
+  if (currentScreen === 'welcome') {
+    return null;
+  }
+
   // Unified click/touch handler on the indicator
   const handleClick = (e) => {
     e.stopPropagation();

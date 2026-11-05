@@ -3,16 +3,18 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
+  html, body, #root {
     margin: 0;
     padding: 0;
+    width: 100%;
     height: 100%;
+    overflow: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-touch-callout: none;
     user-select: none;
     -webkit-user-select: none;
-    background-color: #F7F4EF;
+    background-color: #0c0c0c;
     color: #30251F;
   }
 
