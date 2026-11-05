@@ -94,8 +94,8 @@ def health_check():
         "catalog_size": catalog.product_count,
         "categories": len(catalog.categories),
         "ffmpeg_available": audio_service.ffmpeg_available,
-        "whisper_ready": audio_service.get_whisper_model() is not None,
-        "tts_ready": audio_service.get_tts_pipeline() is not None,
+        "whisper_ready": audio_service.whisper_loaded,
+        "tts_ready": audio_service.tts_loaded,
     }
 
 @app.get("/menu")

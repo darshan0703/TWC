@@ -19,7 +19,7 @@ from langchain_openai import ChatOpenAI
 
 # Load local .env or fallback to reference project .env if keys not yet in local
 _local_env = Path(__file__).resolve().parent / ".env"
-_ref_env = Path("/Users/darshan/Intelligent agent/backend/.env")
+_ref_env = Path(__file__).resolve().parent.parent / ".env"
 
 if _local_env.exists():
     load_dotenv(_local_env)
@@ -149,7 +149,9 @@ class ModelAdapter:
             )
             self.provider = "gemini"
         else:
-            raise ValueError("No LLM API keys found. Please set CEREBRAS_API_KEY, GROQ_API_KEY, or GEMINI_API_KEY.")
+            self.primary_model = None
+            self.provider = None
+            logger.warning("No LLM API keys found. Set CEREBRAS_API_KEY, GROQ_API_KEY, or GEMINI_API_KEY in backend/.env for AI voice conversation.")
 
     def bind_tools(self, tools: Any, **kwargs: Any) -> FallbackToolBinding:
         return FallbackToolBinding(tools, self, **kwargs)
@@ -158,6 +160,10 @@ class ModelAdapter:
         return self._invoke_with_fallback(messages, tools=None, **kwargs)
 
     def _invoke_with_fallback(self, messages: Any, tools: Optional[Any] = None, **kwargs: Any) -> Any:
+        if not self.primary_model:
+            self.__init__()
+            if not self.primary_model:
+                raise ValueError("No LLM API keys found. Please set CEREBRAS_API_KEY, GROQ_API_KEY, or GEMINI_API_KEY in backend/.env.")
         last_exc = None
         for attempt in range(2):
             try:

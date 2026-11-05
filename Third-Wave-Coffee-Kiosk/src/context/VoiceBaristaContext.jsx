@@ -189,6 +189,7 @@ export const VoiceBaristaProvider = ({ children }) => {
               // If order was confirmed, remain idle; otherwise listen for follow-up response
               if (resp.active_screen === 'order_confirmed') {
                 setVoiceState('idle');
+        setErrorMessage(null);
               } else {
                 handleStartListening();
               }
@@ -203,6 +204,7 @@ export const VoiceBaristaProvider = ({ children }) => {
         console.warn('[VoiceBarista] TTS playback skipped:', ttsErr);
         if (resp.active_screen === 'order_confirmed') {
           setVoiceState('idle');
+        setErrorMessage(null);
         } else {
           handleStartListening();
         }
@@ -223,6 +225,7 @@ export const VoiceBaristaProvider = ({ children }) => {
       const recordResult = await stopRecording();
       if (!recordResult || !recordResult.blob || recordResult.blob.size === 0) {
         setVoiceState('idle');
+        setErrorMessage(null);
         return;
       }
 
@@ -231,6 +234,7 @@ export const VoiceBaristaProvider = ({ children }) => {
       if (!stt || !stt.success || !stt.text || !stt.text.trim()) {
         setAssistantReply("I didn't catch that. Could you please tap the mic and repeat?");
         setVoiceState('idle');
+        setErrorMessage(null);
         return;
       }
 
@@ -305,6 +309,7 @@ export const VoiceBaristaProvider = ({ children }) => {
       if (voiceState === 'listening') {
         stopRecording().catch(() => {});
         setVoiceState('idle');
+        setErrorMessage(null);
       }
 
       // If user went back to welcome screen, reset customer session
@@ -313,6 +318,7 @@ export const VoiceBaristaProvider = ({ children }) => {
         setSessionActive(false);
         setHasGreeted(false);
         setVoiceState('idle');
+        setErrorMessage(null);
         setAssistantReply('');
         setTranscript('');
         setPageHint(PAGE_HINTS.welcome);

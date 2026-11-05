@@ -41,6 +41,14 @@ class AudioService:
     def ffmpeg_available(self) -> bool:
         return bool(self._ffmpeg_path and os.path.exists(self._ffmpeg_path))
 
+    @property
+    def whisper_loaded(self) -> bool:
+        return self._whisper_model is not None
+
+    @property
+    def tts_loaded(self) -> bool:
+        return self._kokoro_pipeline is not None
+
     def get_whisper_model(self):
         if self._whisper_model is not None:
             return self._whisper_model
