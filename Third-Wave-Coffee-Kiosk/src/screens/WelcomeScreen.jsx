@@ -24,8 +24,8 @@ export const WelcomeScreen = () => {
           playsInline
           poster="/welcome-video-poster.jpg"
         >
+          <source src="/Video%20Project%206_AI_ENHANCED.mp4" type="video/mp4" />
           <source src="/welcome-video.mp4" type="video/mp4" />
-          <source src="/Video%20Project%206.mp4" type="video/mp4" />
           <img
             src="/welcome-video-poster.jpg"
             alt="Third Wave Coffee"

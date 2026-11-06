@@ -18,8 +18,22 @@ export default defineConfig({
       '/stt': 'http://localhost:8000',
       '/tts': 'http://localhost:8000',
       '/screen': 'http://localhost:8000',
-      '/cart': 'http://localhost:8000',
-      '/order': 'http://localhost:8000'
+      '/cart': {
+        target: 'http://localhost:8000',
+        bypass: (req) => {
+          if (req.headers.accept && req.headers.accept.includes('text/html')) {
+            return '/index.html';
+          }
+        }
+      },
+      '/order': {
+        target: 'http://localhost:8000',
+        bypass: (req) => {
+          if (req.headers.accept && req.headers.accept.includes('text/html')) {
+            return '/index.html';
+          }
+        }
+      }
     }
   }
 })
