@@ -79,8 +79,12 @@ TOOL USAGE GUIDELINES:
 7. When customer asks for recommendations (e.g. "something cold and not too sweet", "what goes well with a latte?"):
    Call get_recommendations_tool(...).
 8. When customer provides their 10-digit mobile number on the mobile screen (e.g. "my number is 9876543210", "9876543210"):
-   Call screen_action_tool(control="set_mobile", value="9876543210").
-9. When customer says "skip", "no number", or "guest":
+   Call screen_action_tool(control="set_mobile", value="9876543210"). Ask only: "Is the number correct?" Do NOT read the number aloud.
+9. When customer confirms their number (e.g. "yes", "correct", "that's right"):
+   Call screen_action_tool(control="confirm_mobile"). Proceed to categories.
+10. When customer rejects their number (e.g. "no", "wrong", "incorrect"):
+   Call screen_action_tool(control="reject_mobile").
+11. When customer says "skip", "no number", or "guest":
    Call screen_action_tool(control="skip_mobile").
 
 PAGE-AWARE CONVERSATIONAL BEHAVIOUR:
@@ -443,20 +447,46 @@ def create_barista_tools(context: Dict[str, Any]) -> List[Any]:
             digits = re.sub(r"\D", "", value or "")
             if len(digits) >= 10:
                 clean_phone = digits[-10:]
-                context["mobile_number"] = clean_phone
-                context["current_screen"] = "categories"
+                context["staged_mobile_number"] = clean_phone
+                context["pending_number_confirmation"] = True
+                context["current_screen"] = "mobile"
                 return {
                     "success": True,
-                    "screen": "categories",
-                    "ui_action": "set_mobile",
+                    "screen": "mobile",
+                    "ui_action": "await_number_confirmation",
                     "mobile_number": clean_phone,
-                    "message": f"Got it, thank you! I've linked your number {clean_phone}. What handcrafted brew or bite can I get started for you today?",
+                    "message": "Is the number correct?",
                 }
             else:
                 return {
                     "success": False,
                     "message": "Could you please repeat your 10-digit mobile number?",
                 }
+
+        elif ctrl in ["confirm_mobile", "confirm_number", "confirm"]:
+            clean_phone = context.get("staged_mobile_number") or context.get("mobile_number") or ""
+            context["mobile_number"] = clean_phone
+            context["staged_mobile_number"] = None
+            context["pending_number_confirmation"] = False
+            context["current_screen"] = "categories"
+            return {
+                "success": True,
+                "screen": "categories",
+                "ui_action": "set_mobile",
+                "mobile_number": clean_phone,
+                "message": "What do you feel like having today — coffee, chilled drinks, or artisanal food?",
+            }
+
+        elif ctrl in ["reject_mobile", "wrong_number", "reenter_mobile"]:
+            context["staged_mobile_number"] = None
+            context["pending_number_confirmation"] = False
+            context["current_screen"] = "mobile"
+            return {
+                "success": True,
+                "screen": "mobile",
+                "ui_action": "clear_mobile",
+                "message": "No problem, please say or enter your mobile number again.",
+            }
 
         elif ctrl in ["skip_mobile", "skip"]:
             context["current_screen"] = "categories"

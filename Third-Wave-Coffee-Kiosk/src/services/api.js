@@ -89,3 +89,43 @@ export async function confirmOrderAPI(sessionId, orderType = 'DINE_IN') {
   return await res.json();
 }
 
+export async function endSession(sessionId, reason = 'reset') {
+  if (!sessionId) return { success: true };
+  try {
+    const res = await fetch(`${BASE_URL}/session/end`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, reason }),
+    });
+    if (!res.ok) return { success: false };
+    return await res.json();
+  } catch (err) {
+    console.warn('[TWC API] Could not end session:', err);
+    return { success: false };
+  }
+}
+
+export async function fetchSessionStatus(sessionId) {
+  if (!sessionId) return null;
+  try {
+    const res = await fetch(`${BASE_URL}/session/status/${sessionId}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('[TWC API] Could not fetch session status:', err);
+    return null;
+  }
+}
+
+export async function fetchArchivedOrder(orderNumber) {
+  if (!orderNumber) return null;
+  try {
+    const res = await fetch(`${BASE_URL}/orders/${orderNumber}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('[TWC API] Could not fetch order:', err);
+    return null;
+  }
+}
+

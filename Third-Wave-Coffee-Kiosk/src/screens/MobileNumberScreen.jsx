@@ -2,13 +2,23 @@ import React, { useState } from 'react';
 import { TwcLogo } from '../components/TwcLogo';
 import { TouchKeypad } from '../components/TouchKeypad';
 import { useKiosk } from '../context/KioskContext';
-import { ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
+import { useVoiceBarista } from '../context/VoiceBaristaContext';
+import { ShieldCheck, ArrowRight, AlertCircle, Check, RotateCcw } from 'lucide-react';
 
 export const MobileNumberScreen = () => {
   const { mobileNumber, setMobileNumber, navigateTo } = useKiosk();
+  const {
+    isAwaitingConfirmation,
+    confirmNumber,
+    cancelConfirmation,
+    setIsAwaitingConfirmation,
+  } = useVoiceBarista();
   const [error, setError] = useState('');
 
   const handleKeyPress = (num) => {
+    if (isAwaitingConfirmation && setIsAwaitingConfirmation) {
+      setIsAwaitingConfirmation(false);
+    }
     if (mobileNumber.length >= 10) return;
     const nextVal = mobileNumber + num;
     setMobileNumber(nextVal);
@@ -18,11 +28,17 @@ export const MobileNumberScreen = () => {
   };
 
   const handleBackspace = () => {
+    if (isAwaitingConfirmation && setIsAwaitingConfirmation) {
+      setIsAwaitingConfirmation(false);
+    }
     setMobileNumber(prev => prev.slice(0, -1));
     setError('');
   };
 
   const handleClear = () => {
+    if (isAwaitingConfirmation && setIsAwaitingConfirmation) {
+      setIsAwaitingConfirmation(false);
+    }
     setMobileNumber('');
     setError('');
   };
@@ -61,11 +77,11 @@ export const MobileNumberScreen = () => {
         
         {/* Headings */}
         <div className="space-y-1">
-          <h2 className="text-2xl sm:text-3xl font-black text-navy tracking-tight font-sans">
-            Enter your mobile number
+          <h2 className="text-2xl sm:text-3xl font-black text-navy tracking-tight font-sans transition-all">
+            {isAwaitingConfirmation ? 'Is the number correct?' : 'Enter your mobile number'}
           </h2>
           <p className="text-xs sm:text-sm text-taupe-warm font-serif italic">
-            Welcome to Third Wave Coffee
+            {isAwaitingConfirmation ? 'Say "Yes" to confirm or "No" to re-enter' : 'Welcome to Third Wave Coffee'}
           </p>
         </div>
 
@@ -74,7 +90,9 @@ export const MobileNumberScreen = () => {
           <div className={`relative flex items-center bg-white rounded-2xl border-2 transition-all p-2.5 sm:p-3 shadow-sm ${
             error 
               ? 'border-red-400 ring-2 ring-red-100' 
-              : 'border-beige-muted hover:border-navy/40 focus-within:border-navy'
+              : isAwaitingConfirmation
+                ? 'border-navy ring-2 ring-navy/20 shadow-md'
+                : 'border-beige-muted hover:border-navy/40 focus-within:border-navy'
           }`}>
             {/* Country Code Pill */}
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cream-200 border border-beige-muted/60 shrink-0">
@@ -125,29 +143,63 @@ export const MobileNumberScreen = () => {
           />
         </div>
 
-        {/* Action Buttons: Continue & Skip */}
+        {/* Action Buttons: Continue & Skip / Voice Confirmation */}
         <div className="w-full flex flex-col gap-2 pt-1">
-          <button
-            type="button"
-            onClick={handleContinue}
-            disabled={mobileNumber.length > 0 && mobileNumber.length < 10}
-            className={`w-full py-3.5 rounded-xl text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.99] shadow-sm ${
-              mobileNumber.length === 10
-                ? 'bg-navy hover:bg-navy-charcoal text-white cursor-pointer border border-navy'
-                : 'bg-beige-muted text-navy/40 cursor-not-allowed border border-beige-muted'
-            }`}
-          >
-            <span>CONTINUE</span>
-            <ArrowRight className="w-4 h-4 text-white" />
-          </button>
+          {isAwaitingConfirmation ? (
+            <>
+              <div className="flex gap-2 w-full">
+                <button
+                  type="button"
+                  onClick={() => confirmNumber ? confirmNumber() : handleContinue()}
+                  className="flex-1 py-3.5 rounded-xl bg-navy hover:bg-navy-charcoal text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 border border-navy transition-all"
+                >
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span>YES, IT'S CORRECT</span>
+                </button>
 
-          <button
-            type="button"
-            onClick={handleSkip}
-            className="w-full py-2 text-xs font-bold uppercase tracking-widest text-navy/70 hover:text-navy transition-colors"
-          >
-            SKIP FOR NOW / CONTINUE AS GUEST
-          </button>
+                <button
+                  type="button"
+                  onClick={() => cancelConfirmation ? cancelConfirmation() : handleClear()}
+                  className="flex-1 py-3.5 rounded-xl bg-white hover:bg-cream-200 text-navy text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 border border-beige-muted transition-all"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-navy/70" />
+                  <span>NO, RE-ENTER</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSkip}
+                className="w-full py-1.5 text-[11px] font-bold uppercase tracking-widest text-navy/60 hover:text-navy transition-colors"
+              >
+                SKIP FOR NOW / CONTINUE AS GUEST
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleContinue}
+                disabled={mobileNumber.length > 0 && mobileNumber.length < 10}
+                className={`w-full py-3.5 rounded-xl text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.99] shadow-sm ${
+                  mobileNumber.length === 10
+                    ? 'bg-navy hover:bg-navy-charcoal text-white cursor-pointer border border-navy'
+                    : 'bg-beige-muted text-navy/40 cursor-not-allowed border border-beige-muted'
+                }`}
+              >
+                <span>CONTINUE</span>
+                <ArrowRight className="w-4 h-4 text-white" />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSkip}
+                className="w-full py-2 text-xs font-bold uppercase tracking-widest text-navy/70 hover:text-navy transition-colors"
+              >
+                SKIP FOR NOW / CONTINUE AS GUEST
+              </button>
+            </>
+          )}
         </div>
 
         {/* Privacy Note */}

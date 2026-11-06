@@ -7,6 +7,7 @@ Maintains strict separation between:
 3. Transactional Cart State (items, quantities, subtotal, 5% GST taxes, total)
 """
 
+import time
 import uuid
 from typing import Dict, Any, Optional, List
 
@@ -109,8 +110,10 @@ class SessionState(dict):
         return dict(self)
 
 
-# Active in-memory session registry for session isolation
-_SESSION_STORE: Dict[str, SessionState] = {}
+from session_lifecycle import session_lifecycle
+
+# Active in-memory session registry for session isolation (backed by session_lifecycle)
+_SESSION_STORE: Dict[str, SessionState] = session_lifecycle._active_sessions
 _ACTIVE_DEFAULT_SESSION_ID = "default"
 
 
@@ -118,6 +121,8 @@ def create_conversation_state(session_id: Optional[str] = None) -> SessionState:
     sess_id = session_id or str(uuid.uuid4())
     raw = {
         "session_id": sess_id,
+        "created_at": time.time(),
+        "last_active_at": time.time(),
 
         # Authoritative UI State
         "current_screen": "welcome",
@@ -138,6 +143,9 @@ def create_conversation_state(session_id: Optional[str] = None) -> SessionState:
         "last_category": "coffee",
         "last_subcategory": "coffee_classics",
         "last_screen": "welcome",
+        "mobile_number": None,
+        "staged_mobile_number": None,
+        "pending_number_confirmation": False,
 
         # Conversational Memory & Anaphora
         "last_item": None,                   # Historical memory of previous item
@@ -170,17 +178,14 @@ def create_conversation_state(session_id: Optional[str] = None) -> SessionState:
 def get_conversation_context(session_id: Optional[str] = None) -> SessionState:
     global _ACTIVE_DEFAULT_SESSION_ID
     target_id = session_id or _ACTIVE_DEFAULT_SESSION_ID
-    if target_id not in _SESSION_STORE:
-        _SESSION_STORE[target_id] = create_conversation_state(target_id)
-    return _SESSION_STORE[target_id]
+    return session_lifecycle.get_session(target_id)
 
 
 def reset_conversation(session_id: Optional[str] = None) -> SessionState:
     global _ACTIVE_DEFAULT_SESSION_ID
     target_id = session_id or str(uuid.uuid4())
     _ACTIVE_DEFAULT_SESSION_ID = target_id
-    _SESSION_STORE[target_id] = create_conversation_state(target_id)
-    return _SESSION_STORE[target_id]
+    return session_lifecycle.create_session(target_id)
 
 
 class StateManager:
@@ -190,6 +195,18 @@ class StateManager:
 
     def reset_session(self, session_id: Optional[str] = None) -> SessionState:
         return reset_conversation(session_id)
+
+    def terminate_session(self, session_id: str, reason: str = "completed") -> Dict[str, Any]:
+        return session_lifecycle.terminate_session(session_id, reason=reason)
+
+    def archive_order(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
+        return session_lifecycle.archive_order(order_data)
+
+    def get_archived_order(self, order_number: str) -> Optional[Dict[str, Any]]:
+        return session_lifecycle.get_archived_order(order_number)
+
+    def list_archived_orders(self) -> List[Dict[str, Any]]:
+        return session_lifecycle.list_archived_orders()
 
     def update_ui_state(
         self,
@@ -205,15 +222,31 @@ class StateManager:
             state.ui.selected_category = selected_category
         if focused_product_id is not None:
             state.ui.focused_product_id = focused_product_id
+        session_lifecycle.touch_session(session_id)
         return state
 
     def clear_conversation_context(self, session_id: str):
-        state = self.get_session(session_id)
+        state = self.get_session(session_id, touch=False)
         state["conversation_history"] = []
         state["selected_product"] = None
         state["last_item"] = None
         state["pending_clarification"] = None
         state["pending_suggestion"] = None
+        state["pending_number_confirmation"] = False
+        state["staged_mobile_number"] = None
+        state["mobile_number"] = None
+        state["customer_preferences"] = {
+            "milk": None,
+            "temperature": None,
+            "sugar": None,
+        }
+        state["cart"] = []
+        state["cart_totals"] = {
+            "itemCount": 0,
+            "subtotal": 0,
+            "taxes": 0,
+            "totalPayable": 0,
+        }
 
 
 state_manager = StateManager()

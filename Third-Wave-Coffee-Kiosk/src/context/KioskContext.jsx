@@ -370,20 +370,29 @@ export const KioskProvider = ({ children }) => {
     navigateTo('/order-confirmed');
   }, [cart, cartTotals, mobileNumber, navigateTo, orderType]);
 
-  // Start a new order from scratch
+  // Start a new order from scratch (clearing all customer context and PII)
   const startNewOrder = useCallback(() => {
     setCart([]);
     setMobileNumber('');
     setSelectedProduct(null);
     setLastOrder(null);
     setLastTopupAmount(null);
+    setSelectedMainCategory('coffee');
+    setSelectedSubcategory('coffee_classics');
+    setOrderType('dine_in');
+
     try {
-      sessionStorage.removeItem('twc_cart');
-      sessionStorage.removeItem('twc_mobileNumber');
-      sessionStorage.removeItem('twc_selectedProduct');
-      sessionStorage.removeItem('twc_lastOrder');
-      sessionStorage.removeItem('twc_lastTopupAmount');
+      // Purge all customer context from browser sessionStorage
+      Object.keys(sessionStorage).forEach((key) => {
+        if (key.startsWith('twc_')) {
+          sessionStorage.removeItem(key);
+        }
+      });
     } catch (_) {}
+
+    // Dispatch custom event to notify VoiceBarista and backend lifecycle manager
+    window.dispatchEvent(new CustomEvent('twc:session-reset', { detail: { reason: 'start_new_order' } }));
+
     navigateTo('/welcome', true);
   }, [navigateTo]);
 

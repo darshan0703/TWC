@@ -3,6 +3,7 @@ import { useKiosk } from './KioskContext';
 import { PRODUCTS } from '../data/products';
 import {
   startSession,
+  endSession,
   sendMessage,
   updateScreenState,
   transcribeAudio,
@@ -31,21 +32,53 @@ const PAGE_HINTS = {
   order_confirmed: "Your order is confirmed and being crafted at the bar!",
 };
 
-function extractSpokenDigits(text) {
+export function convertSpokenTextToDigits(text) {
   if (!text) return '';
-  const wordMap = {
-    zero: '0', oh: '0', one: '1', two: '2', three: '3', four: '4',
+
+  const WORD_TO_DIGIT = {
+    zero: '0', oh: '0', o: '0', nil: '0',
+    one: '1', two: '2', three: '3', four: '4',
     five: '5', six: '6', seven: '7', eight: '8', nine: '9',
+    ten: '10', eleven: '11', twelve: '12', thirteen: '13', fourteen: '14',
+    fifteen: '15', sixteen: '16', seventeen: '17', eighteen: '18', nineteen: '19',
+    twenty: '20', thirty: '30', forty: '40', fourty: '40', fifty: '50',
+    sixty: '60', seventy: '70', eighty: '80', ninety: '90',
   };
-  const words = text.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/);
+
+  const clean = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
+  const tokens = clean.split(/\s+/).filter(Boolean);
+
   let digits = '';
-  for (const w of words) {
-    if (wordMap[w]) {
-      digits += wordMap[w];
-    } else if (/^\d+$/.test(w)) {
-      digits += w;
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+
+    if (token === 'double' && i + 1 < tokens.length) {
+      const nextToken = tokens[i + 1];
+      const nextDigit = WORD_TO_DIGIT[nextToken] || (/^\d$/.test(nextToken) ? nextToken : null);
+      if (nextDigit) {
+        digits += nextDigit + nextDigit;
+        i++;
+        continue;
+      }
+    }
+
+    if (token === 'triple' && i + 1 < tokens.length) {
+      const nextToken = tokens[i + 1];
+      const nextDigit = WORD_TO_DIGIT[nextToken] || (/^\d$/.test(nextToken) ? nextToken : null);
+      if (nextDigit) {
+        digits += nextDigit + nextDigit + nextDigit;
+        i++;
+        continue;
+      }
+    }
+
+    if (WORD_TO_DIGIT[token] !== undefined) {
+      digits += WORD_TO_DIGIT[token];
+    } else if (/^\d+$/.test(token)) {
+      digits += token;
     }
   }
+
   return digits;
 }
 
@@ -61,10 +94,13 @@ export const VoiceBaristaProvider = ({ children }) => {
   const [pageHint, setPageHint] = useState(PAGE_HINTS.welcome);
   const [sessionId, setSessionId] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [isAwaitingConfirmation, setIsAwaitingConfirmation] = useState(false);
 
   const activeTurnIdRef = useRef(0);
   const prevScreenRef = useRef(kiosk.currentScreen);
   const handleStopListeningRef = useRef(null);
+  const isAwaitingConfirmationRef = useRef(false);
+  isAwaitingConfirmationRef.current = isAwaitingConfirmation;
 
   // Initialize session ID silently on mount WITHOUT activating microphone or speaking audio
   useEffect(() => {
@@ -85,22 +121,22 @@ export const VoiceBaristaProvider = ({ children }) => {
   const handleAssistantActions = useCallback((response) => {
     const { actions = [], active_screen, cart: backendCart } = response;
 
-    // 1. Screen navigation
-    if (active_screen && active_screen !== kiosk.currentScreen) {
-      if (active_screen === 'menu' && kiosk.currentScreen !== 'menu') {
-        kiosk.navigateTo('menu');
-      } else if (active_screen === 'cart' && kiosk.currentScreen !== 'cart') {
-        kiosk.navigateTo('cart');
-      } else if (active_screen === 'categories' && kiosk.currentScreen !== 'categories') {
-        kiosk.navigateTo('categories');
-      }
-    }
-
-    // 2. Specific UI Actions
+    // 1. Specific UI Actions
     for (const act of actions) {
-      if (act.ui_action === 'set_mobile' && act.mobile_number) {
-        kiosk.setMobileNumber(act.mobile_number);
+      if (act.ui_action === 'await_number_confirmation') {
+        setIsAwaitingConfirmation(true);
+        if (act.mobile_number) {
+          kiosk.setMobileNumber(act.mobile_number);
+        }
+      } else if (act.ui_action === 'set_mobile') {
+        setIsAwaitingConfirmation(false);
+        if (act.mobile_number) {
+          kiosk.setMobileNumber(act.mobile_number);
+        }
         kiosk.navigateTo('categories');
+      } else if (act.ui_action === 'clear_mobile') {
+        setIsAwaitingConfirmation(false);
+        kiosk.setMobileNumber('');
       } else if (act.ui_action === 'open_customization' && act.product) {
         const prod = PRODUCTS.find((p) => p.id === act.product.id) || act.product;
         kiosk.openCustomization(prod);
@@ -111,13 +147,26 @@ export const VoiceBaristaProvider = ({ children }) => {
       }
     }
 
+    // 2. Screen navigation following backend's active_screen
+    if (active_screen && active_screen !== kiosk.currentScreen) {
+      if (active_screen === 'menu' && kiosk.currentScreen !== 'menu') {
+        kiosk.navigateTo('menu');
+      } else if (active_screen === 'cart' && kiosk.currentScreen !== 'cart') {
+        kiosk.navigateTo('cart');
+      } else if (active_screen === 'categories' && kiosk.currentScreen !== 'categories') {
+        kiosk.navigateTo('categories');
+      } else if (active_screen === 'mobile' && kiosk.currentScreen !== 'mobile') {
+        kiosk.navigateTo('mobile');
+      }
+    }
+
     // 3. Sync cart items if provided
     if (backendCart && Array.isArray(backendCart.items)) {
       kiosk.setCart(backendCart.items);
     }
   }, [kiosk]);
 
-  // Start recording speech with state transition
+  // Start recording speech with state transition and live interim transcript hooks
   const handleStartListening = useCallback(async () => {
     try {
       stopSpeaking();
@@ -125,6 +174,16 @@ export const VoiceBaristaProvider = ({ children }) => {
       setTranscript('');
       setVoiceState('listening');
       await startRecording({
+        onInterim: (liveTranscript) => {
+          setTranscript(liveTranscript);
+          // Progressively update digits on mobile number screen during active speech
+          if (kiosk.currentScreen === 'mobile' && !isAwaitingConfirmationRef.current) {
+            const digits = convertSpokenTextToDigits(liveTranscript);
+            if (digits) {
+              kiosk.setMobileNumber(digits.slice(0, 10));
+            }
+          }
+        },
         onSilence: () => {
           handleStopListeningRef.current?.();
         },
@@ -134,7 +193,7 @@ export const VoiceBaristaProvider = ({ children }) => {
       setErrorMessage('Microphone access denied. Please allow microphone permissions.');
       setVoiceState('error');
     }
-  }, []);
+  }, [kiosk]);
 
   // Dispatch message to Conversational Agent and play spoken audio
   const processCustomerMessage = useCallback(async (customerText) => {
@@ -142,16 +201,13 @@ export const VoiceBaristaProvider = ({ children }) => {
     setVoiceState('processing');
     setErrorMessage(null);
 
-    // Fast-path client check if customer is on mobile number screen
-    if (kiosk.currentScreen === 'mobile') {
+    // If customer was speaking digits on mobile screen, ensure normalized value is updated
+    if (kiosk.currentScreen === 'mobile' && !isAwaitingConfirmationRef.current) {
       const lower = (customerText || '').toLowerCase();
-      if (lower.includes('skip') || lower.includes('no number') || lower.includes('guest')) {
-        kiosk.navigateTo('categories');
-      } else {
-        const digits = extractSpokenDigits(customerText);
-        if (digits.length >= 10) {
-          kiosk.setMobileNumber(digits.slice(-10));
-          kiosk.navigateTo('categories');
+      if (!lower.includes('skip') && !lower.includes('guest')) {
+        const digits = convertSpokenTextToDigits(customerText);
+        if (digits) {
+          kiosk.setMobileNumber(digits.slice(0, 10));
         }
       }
     }
@@ -170,7 +226,7 @@ export const VoiceBaristaProvider = ({ children }) => {
       const replyText = resp.response || "Here's what I found for you!";
       setAssistantReply(replyText);
 
-      // Execute UI actions (navigation, cart updates, drink customizer)
+      // Execute UI actions (navigation, cart updates, drink customizer, confirmation)
       handleAssistantActions(resp);
 
       // Synthesize and play Kokoro TTS
@@ -189,7 +245,7 @@ export const VoiceBaristaProvider = ({ children }) => {
               // If order was confirmed, remain idle; otherwise listen for follow-up response
               if (resp.active_screen === 'order_confirmed') {
                 setVoiceState('idle');
-        setErrorMessage(null);
+                setErrorMessage(null);
               } else {
                 handleStartListening();
               }
@@ -204,7 +260,7 @@ export const VoiceBaristaProvider = ({ children }) => {
         console.warn('[VoiceBarista] TTS playback skipped:', ttsErr);
         if (resp.active_screen === 'order_confirmed') {
           setVoiceState('idle');
-        setErrorMessage(null);
+          setErrorMessage(null);
         } else {
           handleStartListening();
         }
@@ -214,31 +270,31 @@ export const VoiceBaristaProvider = ({ children }) => {
       setErrorMessage("Sorry, I had trouble processing that. Please tap the mic to try again!");
       setVoiceState('error');
     }
-  }, [sessionId, kiosk.currentScreen, kiosk.selectedMainCategory, kiosk.selectedProduct, handleAssistantActions, handleStartListening]);
+  }, [sessionId, kiosk, handleAssistantActions, handleStartListening]);
 
-  // Stop recording, transcribe via Whisper, and process
+  // Stop recording, transcribe via live SpeechRecognition or Whisper, and process
   const handleStopListening = useCallback(async () => {
     if (voiceState !== 'listening') return;
 
     setVoiceState('processing');
     try {
       const recordResult = await stopRecording();
-      if (!recordResult || !recordResult.blob || recordResult.blob.size === 0) {
+      let spokenText = (recordResult?.transcript || '').trim();
+
+      // If live SpeechRecognition didn't produce text, fallback to Whisper STT
+      if (!spokenText && recordResult?.blob && recordResult.blob.size > 0) {
+        const stt = await transcribeAudio(recordResult.blob);
+        if (stt && stt.success && stt.text && stt.text.trim()) {
+          spokenText = stt.text.trim();
+        }
+      }
+
+      if (!spokenText) {
         setVoiceState('idle');
         setErrorMessage(null);
         return;
       }
 
-      // Transcribe via Whisper STT
-      const stt = await transcribeAudio(recordResult.blob);
-      if (!stt || !stt.success || !stt.text || !stt.text.trim()) {
-        setAssistantReply("I didn't catch that. Could you please tap the mic and repeat?");
-        setVoiceState('idle');
-        setErrorMessage(null);
-        return;
-      }
-
-      const spokenText = stt.text.trim();
       setTranscript(spokenText);
       await processCustomerMessage(spokenText);
     } catch (err) {
@@ -250,12 +306,43 @@ export const VoiceBaristaProvider = ({ children }) => {
 
   handleStopListeningRef.current = handleStopListening;
 
+  // Session lifecycle: cleanly renew customer session and purge previous context
+  const renewSession = useCallback((reason = 'reset') => {
+    if (sessionId) {
+      endSession(sessionId, reason).catch(() => {});
+    }
+    stopSpeaking();
+    stopRecording().catch(() => {});
+    setSessionActive(false);
+    setHasGreeted(false);
+    setVoiceState('idle');
+    setErrorMessage(null);
+    setAssistantReply('');
+    setTranscript('');
+    setIsAwaitingConfirmation(false);
+    setPageHint(PAGE_HINTS.welcome);
+    const freshId = `twc-${Math.random().toString(36).substr(2, 8)}`;
+    setSessionId(freshId);
+    return freshId;
+  }, [sessionId]);
+
+  // Listen for global session reset events dispatched across kiosk components
+  useEffect(() => {
+    const handleReset = (e) => {
+      const reason = e?.detail?.reason || 'reset';
+      renewSession(reason);
+    };
+
+    window.addEventListener('twc:session-reset', handleReset);
+    return () => window.removeEventListener('twc:session-reset', handleReset);
+  }, [renewSession]);
+
   // Touch-to-Start Voice Session Initiator
   const startVoiceSession = useCallback(async () => {
-    // If already active and has greeted, avoid replaying greeting
-    if (sessionActive && hasGreeted) {
-      return;
-    }
+    // Generate and initialize fresh session ID for this customer interaction
+    const freshId = `twc-${Math.random().toString(36).substr(2, 8)}`;
+    setSessionId(freshId);
+    startSession(freshId).catch(() => {});
 
     const currentTurn = ++activeTurnIdRef.current;
     setSessionActive(true);
@@ -263,6 +350,7 @@ export const VoiceBaristaProvider = ({ children }) => {
     setErrorMessage(null);
     setTranscript('');
     setAssistantReply(DEFAULT_GREETING);
+    setIsAwaitingConfirmation(false);
 
     try {
       // Synthesize and play initial welcoming greeting
@@ -297,7 +385,7 @@ export const VoiceBaristaProvider = ({ children }) => {
         handleStartListening();
       }
     }
-  }, [sessionActive, hasGreeted, handleStartListening]);
+  }, [handleStartListening]);
 
   // Stop listening when navigating away or ending session
   useEffect(() => {
@@ -312,17 +400,28 @@ export const VoiceBaristaProvider = ({ children }) => {
         setErrorMessage(null);
       }
 
-      // If user went back to welcome screen, reset customer session
+      // If user went back to welcome screen, terminate previous customer session and mint clean context
       if (kiosk.currentScreen === 'welcome') {
         stopSpeaking();
+        if (sessionId) {
+          endSession(sessionId, 'returned_to_welcome').catch(() => {});
+        }
         setSessionActive(false);
         setHasGreeted(false);
         setVoiceState('idle');
         setErrorMessage(null);
         setAssistantReply('');
         setTranscript('');
+        setIsAwaitingConfirmation(false);
         setPageHint(PAGE_HINTS.welcome);
+        const freshId = `twc-${Math.random().toString(36).substr(2, 8)}`;
+        setSessionId(freshId);
         return;
+      }
+
+      // If navigating away from mobile, reset number confirmation state
+      if (kiosk.currentScreen !== 'mobile') {
+        setIsAwaitingConfirmation(false);
       }
 
       // Update page-specific hint
@@ -358,6 +457,18 @@ export const VoiceBaristaProvider = ({ children }) => {
     setVoiceState('idle');
   }, []);
 
+  // Number confirmation helpers for UI/Touch
+  const confirmNumber = useCallback(async () => {
+    setIsAwaitingConfirmation(false);
+    await processCustomerMessage('Yes');
+  }, [processCustomerMessage]);
+
+  const cancelConfirmation = useCallback(async () => {
+    setIsAwaitingConfirmation(false);
+    kiosk.setMobileNumber('');
+    await processCustomerMessage('No');
+  }, [kiosk, processCustomerMessage]);
+
   // Visible microphone toggle control
   const handleToggleMic = useCallback(async () => {
     if (voiceState === 'listening') {
@@ -386,7 +497,12 @@ export const VoiceBaristaProvider = ({ children }) => {
     pageHint,
     sessionId,
     errorMessage,
+    isAwaitingConfirmation,
+    setIsAwaitingConfirmation,
+    confirmNumber,
+    cancelConfirmation,
     startVoiceSession,
+    renewSession,
     startListening: handleStartListening,
     stopListeningAndProcess: handleStopListening,
     cancelListening: handleCancelListening,

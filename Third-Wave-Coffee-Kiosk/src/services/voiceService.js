@@ -9,6 +9,10 @@ let recordedChunks = [];
 let currentAudio = null;
 let currentAudioUrl = null;
 
+// Real-time Speech Recognition
+let speechRecognizer = null;
+let activeLiveTranscript = '';
+
 // Voice Activity & Silence Detection
 let audioCtx = null;
 let analyserNode = null;
@@ -95,12 +99,21 @@ export function releaseMicrophone() {
 }
 
 /**
- * Starts recording user speech with optional silence detection.
+ * Starts recording user speech with optional silence detection and live interim speech transcription.
  */
-export async function startRecording({ onSilence, silenceDelay = 1500, maxDuration = 10000 } = {}) {
+export async function startRecording({ onSilence, onInterim, onFinal, silenceDelay = 1500, maxDuration = 10000 } = {}) {
   // If barista is currently speaking, barge-in immediately!
   stopSpeaking();
   cleanupVAD();
+
+  // Reset speech recognizer
+  if (speechRecognizer) {
+    try {
+      speechRecognizer.stop();
+    } catch (_) {}
+    speechRecognizer = null;
+  }
+  activeLiveTranscript = '';
 
   const stream = await getMicrophone();
   recordedChunks = [];
@@ -123,6 +136,52 @@ export async function startRecording({ onSilence, silenceDelay = 1500, maxDurati
 
   mediaRecorder.start(100); // 100ms slice
   console.log('[VoiceService] Recording started with MIME:', mediaRecorder.mimeType);
+
+  // Initialize browser-native SpeechRecognition for live interim speech events
+  const SpeechRecognitionClass = typeof window !== 'undefined'
+    ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+    : null;
+
+  if (SpeechRecognitionClass) {
+    try {
+      const recognizer = new SpeechRecognitionClass();
+      recognizer.continuous = true;
+      recognizer.interimResults = true;
+      recognizer.lang = 'en-IN';
+      recognizer.maxAlternatives = 1;
+
+      let finalAcc = '';
+
+      recognizer.onresult = (event) => {
+        let interimAcc = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const res = event.results[i];
+          if (res.isFinal) {
+            finalAcc += res[0].transcript + ' ';
+          } else {
+            interimAcc += res[0].transcript;
+          }
+        }
+        activeLiveTranscript = (finalAcc + ' ' + interimAcc).trim();
+        onInterim?.(activeLiveTranscript);
+      };
+
+      recognizer.onerror = (e) => {
+        if (e.error !== 'no-speech' && e.error !== 'aborted') {
+          console.warn('[VoiceService] SpeechRecognition error:', e.error);
+        }
+      };
+
+      recognizer.onend = () => {
+        onFinal?.(activeLiveTranscript);
+      };
+
+      recognizer.start();
+      speechRecognizer = recognizer;
+    } catch (recErr) {
+      console.warn('[VoiceService] SpeechRecognition start warning:', recErr);
+    }
+  }
 
   // Set up silence detection (VAD) via Web Audio API if callback provided
   if (onSilence && typeof window !== 'undefined') {
@@ -197,13 +256,23 @@ export async function startRecording({ onSilence, silenceDelay = 1500, maxDurati
 }
 
 /**
- * Stops recording and returns the recorded audio Blob.
+ * Stops recording and returns the recorded audio Blob along with any live recognized transcript.
  */
 export function stopRecording() {
   cleanupVAD();
+
+  if (speechRecognizer) {
+    try {
+      speechRecognizer.stop();
+    } catch (_) {}
+    speechRecognizer = null;
+  }
+
+  const finalRecordedText = activeLiveTranscript;
+
   return new Promise((resolve, reject) => {
     if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-      resolve(null);
+      resolve({ blob: null, mimeType: '', transcript: finalRecordedText });
       return;
     }
 
@@ -212,7 +281,7 @@ export function stopRecording() {
         const mime = mediaRecorder.mimeType || 'audio/webm';
         const blob = new Blob(recordedChunks, { type: mime });
         recordedChunks = [];
-        resolve({ blob, mimeType: mime });
+        resolve({ blob, mimeType: mime, transcript: finalRecordedText });
       } catch (err) {
         reject(err);
       }

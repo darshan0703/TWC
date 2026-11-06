@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from catalog import catalog
 from state import state_manager
+from session_lifecycle import session_lifecycle, mask_phone_number, mask_pii_in_text, log_safe
 from cart_service import cart_service
 from agent_runtime import agent_runtime
 from audio_service import audio_service
@@ -47,12 +48,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pre-warm audio models on startup
+# Pre-warm audio models on startup & start background lifecycle sweeper
 @app.on_event("startup")
 async def startup_event():
     print("[TWC Server] Starting Third Wave Coffee Cashier API...")
     print(f"[TWC Server] Catalog loaded: {catalog.product_count} products across {len(catalog.categories)} categories.")
     audio_service.warm_up()
+    session_lifecycle.start_background_sweeper(interval_seconds=30.0)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    session_lifecycle.stop_background_sweeper()
 
 # -------------------------------------------------------------
 # Request & Response Schemas
@@ -60,6 +66,10 @@ async def startup_event():
 
 class SessionStartRequest(BaseModel):
     session_id: Optional[str] = None
+
+class SessionEndRequest(BaseModel):
+    session_id: str
+    reason: Optional[str] = "reset"
 
 class MessageRequest(BaseModel):
     session_id: str = Field(..., description="Unique customer session identifier")
@@ -191,6 +201,20 @@ def update_screen(req: ScreenUpdateRequest):
         "speakable_prompt": audio_service.clean_text_for_speech(prompt),
     }
 
+@app.post("/session/end")
+def end_session(req: SessionEndRequest):
+    """
+    Terminates a customer session, clearing all temporary conversational context,
+    preferences, cart, and PII. Idempotent.
+    """
+    res = state_manager.terminate_session(req.session_id, reason=req.reason or "manual_end")
+    return res
+
+@app.get("/session/status/{session_id}")
+def get_session_status(session_id: str):
+    """Retrieves lifecycle status of a session."""
+    return session_lifecycle.get_session_status(session_id)
+
 @app.get("/cart/{session_id}")
 def get_cart(session_id: str):
     """Retrieves current cart state."""
@@ -199,14 +223,36 @@ def get_cart(session_id: str):
 
 @app.post("/order/confirm")
 def confirm_order(req: OrderConfirmRequest):
-    """Finalizes order and returns receipt summary."""
-    order = cart_service.confirm_order(req.session_id, order_type=req.order_type or "DINE_IN")
-    if not order["success"]:
-        return order
+    """
+    Finalizes order, archives transactional record in persistent audit store,
+    and terminates the temporary customer session context (purging PII).
+    """
+    order_res = cart_service.confirm_order(req.session_id, order_type=req.order_type or "DINE_IN")
+    if not order_res["success"]:
+        return order_res
 
-    # Clear active conversation focus
-    state_manager.clear_conversation_context(req.session_id)
+    order = order_res["order"]
+
+    # 1. Permanently archive transactional order record
+    state_manager.archive_order(order)
+
+    # 2. Terminate active temporary customer session context (idempotent, DPDP compliant)
+    state_manager.terminate_session(req.session_id, reason="order_completed")
+
+    return order_res
+
+@app.get("/orders/{order_number}")
+def get_order(order_number: str):
+    """Retrieves a completed transactional order by order number."""
+    order = state_manager.get_archived_order(order_number)
+    if not order:
+        raise HTTPException(status_code=404, detail=f"Order '{order_number}' not found")
     return order
+
+@app.get("/orders")
+def list_orders():
+    """Lists all archived completed orders."""
+    return {"orders": state_manager.list_archived_orders()}
 
 # -------------------------------------------------------------
 # Voice Endpoints (STT & TTS)

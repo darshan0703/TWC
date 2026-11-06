@@ -251,7 +251,7 @@ def confirm_order(
             "total": totals["totalPayable"],
             "paymentMethod": payment_method.upper(),
             "timestamp": time.strftime("%I:%M %p"),
-            "mobileNumber": mobile_number or "Walk-in Guest",
+            "mobileNumber": mobile_number or context.get("mobile_number") or "Walk-in Guest",
             "status": "Preparing",
         }
 

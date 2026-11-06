@@ -62,7 +62,22 @@ def test_mobile_number_voice_flow():
     }).json()
     print(f"[Barista]: {res1['response']}")
     print(f"Active Screen after mobile number: {res1['active_screen']}")
-    assert res1['active_screen'] == "categories"
+    assert res1['active_screen'] == "mobile"
+    assert res1['response'] == "Is the number correct?"
+    assert res1.get('speakable_response') == "Is the number correct?"
+    time.sleep(0.5)
+
+    # 2b. Customer confirms number: "Yes"
+    q_conf = "Yes, correct"
+    print(f"[Customer confirms number]: '{q_conf}'")
+    res_conf = client.post("/message", json={
+        "session_id": sid,
+        "message": q_conf,
+        "current_screen": "mobile"
+    }).json()
+    print(f"[Barista after confirmation]: {res_conf['response']}")
+    print(f"Active Screen after confirmation: {res_conf['active_screen']}")
+    assert res_conf['active_screen'] == "categories"
     time.sleep(0.8)
 
     # 3. Customer now orders from categories: "I want a cappuccino"
