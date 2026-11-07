@@ -1,0 +1,142 @@
+/* =========================================================================
+   CustomizationScreen.css — Product Customization & Add-on Engine
+   ========================================================================= */
+
+.customization-screen {
+  background-color: #F8F5EE;
+  color: #1C2A39;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  touch-action: manipulation;
+}
+
+/* Product Hero Card */
+.customization-screen__hero-card {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  background-color: #FFFFFF;
+  border-radius: 1.25rem;
+  padding: 0.875rem;
+  border: 1px solid rgba(216, 207, 196, 0.8);
+  box-shadow: 0 4px 16px rgba(28, 42, 57, 0.05);
+}
+
+.customization-screen__hero-image {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 1rem;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid rgba(216, 207, 196, 0.6);
+}
+
+/* Tasting notes tags */
+.customization-screen__note-pill {
+  padding: 0.1875rem 0.5rem;
+  border-radius: 0.375rem;
+  background-color: #F0EAE1;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(28, 42, 57, 0.85);
+}
+
+/* Option Sections Container */
+.customization-screen__options-panel {
+  background-color: #FFFFFF;
+  border-radius: 1.25rem;
+  padding: 0.875rem;
+  border: 1px solid rgba(216, 207, 196, 0.8);
+  box-shadow: 0 4px 12px rgba(28, 42, 57, 0.04);
+}
+
+/* Customization Selection Card */
+.customization-screen__select-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  border-width: 2px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.customization-screen__select-btn:active {
+  transform: scale(0.98);
+}
+
+.customization-screen__select-btn--active {
+  background-color: #EAE3D9;
+  border-color: #1C2A39;
+  color: #1C2A39;
+  font-weight: 800;
+  box-shadow: 0 2px 6px rgba(28, 42, 57, 0.08);
+}
+
+.customization-screen__select-btn--inactive {
+  background-color: rgba(248, 245, 238, 0.6);
+  border-color: #D8CFC4;
+  color: rgba(28, 42, 57, 0.8);
+  font-weight: 700;
+}
+
+/* Stepper Quantity Buttons (Minimum 48x48px for physical touch accessibility) */
+.customization-screen__stepper-btn {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #D8CFC4;
+  background-color: #FFFFFF;
+  color: #1C2A39;
+  font-weight: 900;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.customization-screen__stepper-btn:active {
+  transform: scale(0.92);
+  background-color: #F0EAE1;
+  border-color: #1C2A39;
+}
+
+/* Bottom Sticky Checkout Bar */
+.customization-screen__bottom-bar {
+  flex-shrink: 0;
+  background-color: #FFFFFF;
+  border-top: 1px solid rgba(216, 207, 196, 0.8);
+  padding: 0.75rem 1rem;
+  box-shadow: 0 -4px 16px rgba(28, 42, 57, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.customization-screen__add-btn {
+  flex: 1 1 0%;
+  min-height: 48px;
+  border-radius: 0.875rem;
+  background-color: #1C2A39;
+  color: #FFFFFF;
+  font-weight: 900;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(28, 42, 57, 0.2);
+  border: 1px solid #1C2A39;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.customization-screen__add-btn:active {
+  transform: scale(0.985);
+  background-color: #131E2A;
+}

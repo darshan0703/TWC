@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './CartScreen.css';
 import { KioskHeader } from '../components/KioskHeader';
 import { BillSummary } from '../components/BillSummary';
 import { CART_RECOMMENDATIONS } from '../data/products';
@@ -31,7 +32,7 @@ export const CartScreen = () => {
   };
 
   return (
-    <div className="w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
+    <div className="cart-screen w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
       
       {/* Header */}
       <KioskHeader

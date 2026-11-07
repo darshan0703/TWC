@@ -1,0 +1,99 @@
+/* =========================================================================
+   WalletTopUpScreen.css — Kiosk Instant Contactless Wallet Top-up
+   ========================================================================= */
+
+.wallet-topup-screen {
+  background-color: #F8F5EE;
+  color: #1C2A39;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  touch-action: manipulation;
+}
+
+/* Balance Card */
+.wallet-topup-screen__balance-card {
+  background-color: #FFFFFF;
+  border-radius: 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(216, 207, 196, 0.85);
+  box-shadow: 0 4px 14px rgba(28, 42, 57, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Preset Amount Selector Button */
+.wallet-topup-screen__preset-btn {
+  flex: 1 1 0%;
+  padding: 0.75rem 0.5rem;
+  border-radius: 0.875rem;
+  border-width: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.wallet-topup-screen__preset-btn:active {
+  transform: scale(0.96);
+}
+
+.wallet-topup-screen__preset-btn--active {
+  background-color: #1C2A39;
+  border-color: #1C2A39;
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(28, 42, 57, 0.2);
+}
+
+.wallet-topup-screen__preset-btn--inactive {
+  background-color: #FFFFFF;
+  border-color: #D8CFC4;
+  color: #1C2A39;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.wallet-topup-screen__preset-btn--inactive:hover {
+  border-color: rgba(28, 42, 57, 0.4);
+}
+
+/* QR Code Display Card */
+.wallet-topup-screen__qr-card {
+  background-color: #FFFFFF;
+  border-radius: 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(216, 207, 196, 0.85);
+  box-shadow: 0 4px 14px rgba(28, 42, 57, 0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* Primary Top-up CTA */
+.wallet-topup-screen__submit-btn {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 0.875rem;
+  background-color: #1C2A39;
+  color: #FFFFFF;
+  font-weight: 900;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(28, 42, 57, 0.22);
+  border: 1px solid #1C2A39;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wallet-topup-screen__submit-btn:active {
+  transform: scale(0.985);
+  background-color: #131E2A;
+}

@@ -1,0 +1,122 @@
+/* =========================================================================
+   KioskFooter.css — Persistent Bottom Kiosk Navigation Tray
+   Easily adjust width, height, padding, fonts, and colors below.
+   ========================================================================= */
+
+.kiosk-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(216, 207, 196, 0.8);
+  padding: 0.625rem 0.875rem;       /* 10px 14px */
+  box-shadow: 0 -4px 16px rgba(28, 42, 57, 0.06);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.kiosk-footer__row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;                    /* 10px spacing */
+}
+
+/* Left: Home / Categories button */
+.kiosk-footer__categories-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;          /* 8px 12px */
+  min-height: 40px;                 /* Easily adjust button height */
+  border-radius: 0.75rem;           /* 12px */
+  font-size: 0.75rem;               /* 12px */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border-width: 1px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.kiosk-footer__categories-btn:active {
+  transform: scale(0.95);
+}
+
+/* Right: Quick Cart Overview & View Cart CTA */
+.kiosk-footer__cart-btn {
+  flex: 1 1 0%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  padding: 0.5rem 0.875rem;         /* 8px 14px */
+  min-height: 42px;                 /* Easily adjust tray button height */
+  border-radius: 0.75rem;           /* 12px */
+  background-color: #1C2A39;
+  color: #FFFFFF;
+  border: 1px solid #1C2A39;
+  box-shadow: 0 4px 12px rgba(28, 42, 57, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kiosk-footer__cart-btn:hover {
+  background-color: #243342;
+}
+
+.kiosk-footer__cart-btn:active {
+  transform: scale(0.98);
+}
+
+.kiosk-footer__cart-icon-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;                    /* 24px */
+  height: 1.5rem;
+  border-radius: 0.5rem;            /* 8px */
+  background-color: rgba(255, 255, 255, 0.15);
+  color: #FFFFFF;
+}
+
+.kiosk-footer__badge {
+  position: absolute;
+  top: -0.375rem;
+  right: -0.375rem;
+  width: 1rem;                      /* 16px */
+  height: 1rem;
+  border-radius: 9999px;
+  background-color: #FFFFFF;
+  color: #1C2A39;
+  font-weight: 900;
+  font-size: 0.5625rem;             /* 9px */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.kiosk-footer__arrow-box {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.kiosk-footer__cart-btn:hover .kiosk-footer__arrow-box {
+  transform: translateX(2px);
+}
+

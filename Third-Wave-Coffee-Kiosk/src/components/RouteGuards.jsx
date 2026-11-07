@@ -1,4 +1,5 @@
 import React from 'react';
+import './RouteGuards.css';
 import { Navigate } from 'react-router-dom';
 import { useKiosk } from '../context/KioskContext';
 import { OrderConfirmationScreen } from '../screens/OrderConfirmationScreen';
@@ -15,7 +16,11 @@ export const OrderConfirmedGuard = () => {
     return <Navigate to="/welcome" replace />;
   }
 
-  return <OrderConfirmationScreen />;
+  return (
+    <div className="route-guard-wrapper">
+      <OrderConfirmationScreen />
+    </div>
+  );
 };
 
 /**
@@ -29,6 +34,9 @@ export const WalletSuccessGuard = () => {
     return <Navigate to="/cart" replace />;
   }
 
-  return <WalletSuccessScreen />;
+  return (
+    <div className="route-guard-wrapper">
+      <WalletSuccessScreen />
+    </div>
+  );
 };
-

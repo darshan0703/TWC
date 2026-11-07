@@ -1,0 +1,87 @@
+/* =========================================================================
+   TouchKeypad.css — On-screen Touch Keypad for Kiosk
+   Easily adjust button heights, widths, font sizes, gaps, and borders here.
+   ========================================================================= */
+
+:root {
+  --keypad-btn-height: 2.5rem;       /* ~40px: easily change key height */
+  --keypad-btn-height-sm: 2.5rem;    /* ~40px on smaller viewports */
+  --keypad-gap: 0.35rem;             /* gap between keys */
+  --keypad-border-radius: 0.625rem;  /* border radius */
+  --keypad-font-size: 1.15rem;       /* number font size */
+}
+
+.touch-keypad {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--keypad-gap, 0.35rem);
+  user-select: none;
+}
+
+/* Number key button */
+.touch-keypad__key {
+  height: var(--keypad-btn-height, 2.5rem) !important;
+  min-height: var(--keypad-btn-height, 2.5rem) !important;
+  max-height: var(--keypad-btn-height, 2.5rem) !important;
+  border-radius: var(--keypad-border-radius, 0.625rem);
+  background-color: #FFFFFF;
+  border: 1px solid #EAE3D9;
+  color: #1C2A39;
+  font-size: var(--keypad-font-size, 1.15rem);
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-keypad__key:hover {
+  border-color: rgba(28, 42, 57, 0.4);
+}
+
+.touch-keypad__key:active {
+  background-color: #F0E8DC;
+  transform: scale(0.96);
+}
+
+/* Action key buttons (Clear / Delete) */
+.touch-keypad__action-key {
+  height: var(--keypad-btn-height, 2.5rem) !important;
+  min-height: var(--keypad-btn-height, 2.5rem) !important;
+  max-height: var(--keypad-btn-height, 2.5rem) !important;
+  border-radius: var(--keypad-border-radius, 0.625rem);
+  background-color: rgba(240, 232, 220, 0.9);
+  border: 1px solid #EAE3D9;
+  color: rgba(28, 42, 57, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-keypad__action-key:hover {
+  border-color: rgba(28, 42, 57, 0.4);
+}
+
+.touch-keypad__action-key:active {
+  background-color: #E2D6C5;
+  transform: scale(0.96);
+}
+
+.touch-keypad__action-label {
+  font-size: 0.55rem;              /* ~9px */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

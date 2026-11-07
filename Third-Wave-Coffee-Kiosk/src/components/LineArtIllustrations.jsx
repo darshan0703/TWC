@@ -1,4 +1,5 @@
 import React from 'react';
+import './LineArtIllustrations.css';
 
 // Minimal 2D navy line-art of a person relaxing with a warm ceramic cup of specialty coffee
 export const CoffeeMomentIllustration = ({ className = "w-48 h-48", color = "#1C2A39" }) => (
@@ -6,7 +7,7 @@ export const CoffeeMomentIllustration = ({ className = "w-48 h-48", color = "#1C
     viewBox="0 0 200 200"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
-    className={className}
+    className={`line-art-illustration line-art-illustration--moment ${className}`}
   >
     {/* Minimal delicate café table line */}
     <path d="M20 165H180" stroke={color} strokeWidth="2" strokeLinecap="round" strokeOpacity="0.4" />
@@ -51,7 +52,7 @@ export const CoffeeSocialIllustration = ({ className = "w-44 h-44", color = "#1C
     viewBox="0 0 200 160"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
-    className={className}
+    className={`line-art-illustration line-art-illustration--social ${className}`}
   >
     {/* Table line */}
     <path d="M15 135H185" stroke={color} strokeWidth="2" strokeLinecap="round" strokeOpacity="0.4" />
@@ -88,7 +89,7 @@ export const CoffeeAndPastryIllustration = ({ className = "w-32 h-32", color = "
     viewBox="0 0 140 120"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
-    className={className}
+    className={`line-art-illustration line-art-illustration--pastry ${className}`}
   >
     {/* Cup */}
     <rect x="25" y="55" width="34" height="36" rx="6" stroke={color} strokeWidth="2" fill="#FFFFFF" />

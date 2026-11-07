@@ -1,37 +1,25 @@
 import React from 'react';
-import { Home, ShoppingBag, ArrowRight } from 'lucide-react';
+import './KioskFooter.css';
+import { ShoppingBag, ArrowRight } from 'lucide-react';
 import { useKiosk } from '../context/KioskContext';
 
-export const KioskFooter = ({ activeTab = 'home' }) => {
+export const KioskFooter = () => {
   const { navigateTo, cartTotals } = useKiosk();
 
   return (
-    <footer className="sticky bottom-0 z-30 w-full bg-white/95 backdrop-blur-md border-t border-beige-muted/80 px-3.5 py-2.5 shadow-lg shrink-0">
-      <div className="w-full flex items-center justify-between gap-2.5">
+    <footer className="kiosk-footer sticky bottom-0 z-30 w-full bg-white/95 backdrop-blur-md border-t border-beige-muted/80 px-3.5 py-2.5 shadow-lg shrink-0">
+      <div className="kiosk-footer__row w-full flex items-center justify-between gap-2.5">
         
-        {/* Left: Home / All Categories */}
-        <button
-          onClick={() => navigateTo('categories')}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all active:scale-95 border ${
-            activeTab === 'home'
-              ? 'bg-navy text-white border-navy shadow-sm'
-              : 'bg-cream-100 text-navy border-beige-muted hover:border-navy/40'
-          }`}
-        >
-          <Home className="w-3.5 h-3.5" />
-          <span>Categories</span>
-        </button>
-
-        {/* Right: Quick Cart Overview & View Cart CTA */}
+        {/* Quick Cart Overview & View Cart CTA (Full width across footer) */}
         <button
           onClick={() => navigateTo('cart')}
-          className="group flex-1 flex items-center justify-between gap-2.5 px-3.5 py-2 rounded-xl bg-navy hover:bg-navy-charcoal active:scale-[0.98] transition-all text-white shadow-kiosk border border-navy"
+          className="kiosk-footer__cart-btn group w-full flex items-center justify-between gap-2.5 px-4 py-2.5 rounded-xl bg-navy hover:bg-navy-charcoal active:scale-[0.98] transition-all text-white shadow-kiosk border border-navy cursor-pointer"
         >
-          <div className="flex items-center gap-2">
-            <div className="relative flex items-center justify-center w-6 h-6 rounded-lg bg-white/15 text-white">
+          <div className="flex items-center gap-2.5">
+            <div className="kiosk-footer__cart-icon-box relative flex items-center justify-center w-6 h-6 rounded-lg bg-white/15 text-white">
               <ShoppingBag className="w-3.5 h-3.5" />
               {cartTotals.itemCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white text-navy font-black text-[9px] flex items-center justify-center shadow-sm">
+                <span className="kiosk-footer__badge absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white text-navy font-black text-[9px] flex items-center justify-center shadow-sm">
                   {cartTotals.itemCount}
                 </span>
               )}
@@ -47,7 +35,7 @@ export const KioskFooter = ({ activeTab = 'home' }) => {
             </div>
           </div>
 
-          <div className="w-6 h-6 rounded-lg bg-white/15 flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
+          <div className="kiosk-footer__arrow-box w-6 h-6 rounded-lg bg-white/15 flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
             <ArrowRight className="w-3.5 h-3.5 text-white" />
           </div>
         </button>

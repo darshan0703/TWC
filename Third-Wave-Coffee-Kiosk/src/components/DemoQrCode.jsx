@@ -1,21 +1,22 @@
 import React from 'react';
+import './DemoQrCode.css';
 import { AlertTriangle } from 'lucide-react';
 
 export const DemoQrCode = ({ amount = 600 }) => {
   return (
-    <div className="bg-white rounded-2xl p-3.5 border-2 border-dashed border-beige-muted flex flex-col items-center text-center shadow-sm">
+    <div className="demo-qr-code bg-white rounded-2xl p-3.5 border-2 border-dashed border-beige-muted flex flex-col items-center text-center shadow-sm">
       {/* Clear Warning Banner */}
-      <div className="w-full bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 mb-2.5 flex items-center justify-center gap-1.5 text-amber-900 font-extrabold text-[10px] uppercase tracking-wider">
+      <div className="demo-qr-code__warning w-full bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 mb-2.5 flex items-center justify-center gap-1.5 text-amber-900 font-extrabold text-[10px] uppercase tracking-wider">
         <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
         <span>DEMO QR — NOT A REAL PAYMENT CODE</span>
       </div>
 
       {/* QR Code Container */}
-      <div className="relative p-3 bg-white rounded-xl shadow-inner border border-beige-muted/60 mb-2.5">
+      <div className="demo-qr-code__svg-card relative p-3 bg-white rounded-xl shadow-inner border border-beige-muted/60 mb-2.5">
         {/* Crisp High-Res Stylized QR Code SVG in Charcoal Navy */}
         <svg
           viewBox="0 0 160 160"
-          className="w-36 h-36 sm:w-40 sm:h-40"
+          className="demo-qr-code__svg w-36 h-36 sm:w-40 sm:h-40"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >

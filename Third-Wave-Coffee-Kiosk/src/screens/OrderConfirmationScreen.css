@@ -1,0 +1,106 @@
+/* =========================================================================
+   OrderConfirmationScreen.css — Order Placed, Token Generation & Status
+   ========================================================================= */
+
+.order-confirmation-screen {
+  background-color: #F8F5EE;
+  color: #1C2A39;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  touch-action: manipulation;
+}
+
+/* Central Card */
+.order-confirmation-screen__card {
+  width: 100%;
+  max-width: 24rem;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  background-color: #FFFFFF;
+  padding: 1.5rem;
+  border-radius: 1.75rem;
+  border: 1px solid rgba(216, 207, 196, 0.85);
+  box-shadow: 0 12px 36px rgba(28, 42, 57, 0.08);
+  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Order Token Callout */
+.order-confirmation-screen__token-pill {
+  display: inline-block;
+  padding: 0.375rem 1rem;
+  border-radius: 0.75rem;
+  background-color: #1C2A39;
+  color: #FFFFFF;
+  font-family: "Plus Jakarta Sans", monospace, sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  box-shadow: 0 2px 8px rgba(28, 42, 57, 0.2);
+}
+
+/* Progress Tracker Bar */
+.order-confirmation-screen__progress-container {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.75rem;
+  background-color: #F8F5EE;
+  border: 1px solid rgba(216, 207, 196, 0.7);
+}
+
+.order-confirmation-screen__progress-track {
+  position: relative;
+  width: 100%;
+  height: 0.375rem;
+  background-color: #F0EAE1;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.order-confirmation-screen__progress-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 66.666%;
+  background-color: #1C2A39;
+  border-radius: 9999px;
+  animation: progressPulse 2.5s infinite ease-in-out;
+}
+
+@keyframes progressPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.82;
+  }
+}
+
+/* New Order Button */
+.order-confirmation-screen__new-order-btn {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 0.75rem;
+  background-color: #1C2A39;
+  color: #FFFFFF;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 14px rgba(28, 42, 57, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid #1C2A39;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.order-confirmation-screen__new-order-btn:active {
+  transform: scale(0.985);
+  background-color: #131E2A;
+}

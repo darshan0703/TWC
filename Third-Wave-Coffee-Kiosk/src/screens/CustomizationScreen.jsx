@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import './CustomizationScreen.css';
 import { KioskHeader } from '../components/KioskHeader';
 import { CUSTOMIZATION_OPTIONS, PASTRY_RECOMMENDATIONS, PRODUCTS } from '../data/products';
 import { useKiosk } from '../context/KioskContext';
@@ -85,7 +86,7 @@ export const CustomizationScreen = () => {
   };
 
   return (
-    <div className="w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
+    <div className="customization-screen w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
       
       {/* Kiosk Header */}
       <KioskHeader
