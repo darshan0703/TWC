@@ -1,0 +1,141 @@
+/* =========================================================================
+   WelcomeScreen.css — Third Wave Coffee Kiosk Welcome / Touch to Start
+   ========================================================================= */
+
+.welcome-screen {
+  background-color: #1C2A39;
+  color: #F8F5EE;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  touch-action: manipulation;
+}
+
+/* Full-bleed portrait video container */
+.welcome-screen__media-area {
+  position: relative;
+  width: 100%;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: hidden;
+  background-color: #1C2A39;
+}
+
+.welcome-screen__media-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+  border: 0;
+  outline: none;
+}
+
+/* Subtle vignette overlay to ensure seamless blend with bottom footer */
+.welcome-screen__media-vignette {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(28, 42, 57, 0.15) 0%,
+    transparent 15%,
+    transparent 85%,
+    rgba(28, 42, 57, 0.4) 100%
+  );
+  pointer-events: none;
+}
+
+/* Full-width seamless "TOUCH TO START" CTA bar */
+.welcome-screen__footer {
+  width: 100% !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background-color: #1C2A39 !important;
+  border-top: 1px solid rgba(248, 245, 238, 0.08) !important;
+}
+
+/* Sleek, reduced height "TOUCH TO START" button */
+.welcome-screen__cta-button {
+  width: 100% !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 44px !important;
+  background-color: #1C2A39 !important;
+  color: #F8F5EE !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 1rem !important;
+  cursor: pointer !important;
+  border: 0 !important;
+  outline: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transition: background-color 0.2s ease, transform 0.15s ease !important;
+  user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+@media (min-width: 640px) {
+  .welcome-screen__cta-button {
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 48px !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .welcome-screen__cta-button {
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 52px !important;
+  }
+}
+
+.welcome-screen__cta-button:active {
+  background-color: #131E2A !important;
+  transform: scale(0.995) !important;
+}
+
+.welcome-screen__cta-button:focus-visible {
+  outline: 3px solid #C36B46 !important;
+  outline-offset: -3px !important;
+}
+
+/* Well-proportioned CTA typography for sleek bar */
+.welcome-screen__cta-text {
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif !important;
+  font-size: 0.95rem !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.15em !important;
+  text-align: center !important;
+  color: #F8F5EE !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+  white-space: nowrap !important;
+  animation: welcomePulse 3s infinite ease-in-out !important;
+}
+
+@media (min-width: 640px) {
+  .welcome-screen__cta-text {
+    font-size: 1.05rem !important;
+    letter-spacing: 0.17em !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .welcome-screen__cta-text {
+    font-size: 1.15rem !important;
+    letter-spacing: 0.18em !important;
+  }
+}
+
+@keyframes welcomePulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.88;
+  }
+}

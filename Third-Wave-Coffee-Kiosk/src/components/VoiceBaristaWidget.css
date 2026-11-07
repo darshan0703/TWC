@@ -1,0 +1,143 @@
+/* =========================================================================
+   VoiceBaristaWidget.css — Floating Voice Barista Widget
+   Compact & unobtrusive voice-status indicator across all screens.
+   ========================================================================= */
+
+:root {
+  --voice-widget-pill-height: 1.625rem;  /* 26px: compact, refined pill height */
+  --voice-widget-z-index: 40;            /* widget z-index */
+  --voice-widget-font-size: 0.625rem;    /* 10px: compact text font size */
+  --voice-widget-bottom-default: 1.25rem;/* 20px bottom offset for standard screens */
+  --voice-widget-bottom-menu: 4.15rem;   /* offset directly above KioskFooter */
+  --voice-widget-bottom-actions: 5.15rem;/* offset above checkout bars */
+}
+
+/* Outer centering container */
+.voice-barista-widget {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--voice-widget-z-index, 40);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Adaptive screen offsets */
+.voice-barista-widget--menu,
+.voice-barista-widget--categories {
+  bottom: var(--voice-widget-bottom-menu, 4.15rem);
+}
+
+.voice-barista-widget--customization,
+.voice-barista-widget--cart,
+.voice-barista-widget--wallet_topup {
+  bottom: var(--voice-widget-bottom-actions, 5.15rem);
+}
+
+.voice-barista-widget--default {
+  bottom: var(--voice-widget-bottom-default, 1.25rem);
+}
+
+/* Interactive Pill Button */
+.voice-barista-widget__pill {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.55rem;
+  min-height: var(--voice-widget-pill-height, 1.625rem);
+  height: var(--voice-widget-pill-height, 1.625rem);
+  border-radius: 9999px;
+  font-family: inherit;
+  font-size: var(--voice-widget-font-size, 0.625rem);
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(28, 42, 57, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.voice-barista-widget__pill:active {
+  transform: scale(0.96);
+}
+
+/* 1. IDLE State */
+.voice-barista-widget__pill--idle {
+  background-color: rgba(28, 42, 57, 0.95);
+  color: #F8F5EE;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.voice-barista-widget__pill--idle:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* 2. LISTENING State */
+.voice-barista-widget__pill--listening {
+  background-color: rgba(28, 42, 57, 0.95);
+  color: #FFFFFF;
+  border-color: rgba(244, 63, 94, 0.5);
+  box-shadow: 0 2px 10px rgba(244, 63, 94, 0.25), 0 0 0 1.5px rgba(244, 63, 94, 0.2);
+}
+
+/* 3. PROCESSING State */
+.voice-barista-widget__pill--processing {
+  background-color: rgba(28, 42, 57, 0.95);
+  color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(200, 185, 165, 0.4);
+  box-shadow: 0 2px 10px rgba(28, 42, 57, 0.25), 0 0 0 1px rgba(200, 185, 165, 0.2);
+  cursor: wait;
+}
+
+/* 4. SPEAKING State */
+.voice-barista-widget__pill--speaking {
+  background-color: rgba(28, 42, 57, 0.95);
+  color: #FFFFFF;
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.25), 0 0 0 1.5px rgba(16, 185, 129, 0.2);
+}
+
+/* 5. ERROR State */
+.voice-barista-widget__pill--error {
+  background-color: rgba(28, 42, 57, 0.95);
+  color: #FECDD3;
+  border-color: rgba(244, 63, 94, 0.5);
+  box-shadow: 0 2px 10px rgba(244, 63, 94, 0.2), 0 0 0 1px rgba(244, 63, 94, 0.2);
+}
+
+/* Text styling */
+.voice-barista-widget__text {
+  letter-spacing: 0.02em;
+  font-size: 0.625rem;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.voice-barista-widget__text--error {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+/* Animated sound wave bars for listening / speaking */
+.voice-barista-widget__wave {
+  display: flex;
+  align-items: center;
+  gap: 1.5px;
+  margin-left: 1px;
+}
+
+.voice-barista-widget__wave-bar {
+  width: 1.5px;
+  border-radius: 9999px;
+}

@@ -1,0 +1,135 @@
+/* =========================================================================
+   MobileNumberScreen.css — Customer Mobile Entry & Guest Kiosk Flow
+   Compact, responsive keypad & input sizing for 9:16 portrait kiosk.
+   ========================================================================= */
+
+.mobile-number-screen {
+  background-color: #F8F5EE;
+  color: #1C2A39;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  touch-action: manipulation;
+  overflow-x: hidden;
+}
+
+/* Constrain main content area to prevent horizontal cutoffs */
+.mobile-number-screen main {
+  max-width: 320px !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 0 0.5rem !important;
+}
+
+/* Titles */
+.mobile-number-screen h2 {
+  font-size: 1.35rem !important;
+  line-height: 1.25 !important;
+}
+
+.mobile-number-screen p.font-serif {
+  font-size: 0.8rem !important;
+}
+
+/* =========================================================================
+   Phone Input Display Box (Compact & Centered)
+   ========================================================================= */
+.mobile-number-screen .rounded-2xl.border-2 {
+  padding: 0.35rem 0.6rem !important;
+  border-radius: 0.75rem !important;
+  gap: 0.35rem !important;
+}
+
+/* Country code pill (+91) */
+.mobile-number-screen .rounded-2xl.border-2 .bg-cream-200 {
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 0.5rem !important;
+}
+
+.mobile-number-screen .rounded-2xl.border-2 .bg-cream-200 span[role="img"] {
+  font-size: 0.875rem !important;
+}
+
+.mobile-number-screen .rounded-2xl.border-2 .bg-cream-200 span.text-sm {
+  font-size: 0.75rem !important;
+}
+
+/* Display digits */
+.mobile-number-screen .rounded-2xl.border-2 .flex-1 {
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+}
+
+.mobile-number-screen .rounded-2xl.border-2 .flex-1 span {
+  font-size: 1.05rem !important;
+  letter-spacing: 0.08em !important;
+  line-height: 1.2 !important;
+}
+
+/* 0/10 Counter */
+.mobile-number-screen .rounded-2xl.border-2 .px-2 span {
+  font-size: 9px !important;
+  padding: 0.15rem 0.4rem !important;
+}
+
+/* =========================================================================
+   Dial Pad / Touch Keypad (Compact & Proportional)
+   ========================================================================= */
+.mobile-number-screen .touch-keypad {
+  max-width: 285px !important;
+  margin: 0 auto !important;
+  gap: 0.35rem !important;
+}
+
+/* Numeric keys (1-9, 0) */
+.mobile-number-screen .touch-keypad__key,
+.mobile-number-screen button.touch-keypad__key {
+  height: 2.5rem !important;        /* ~40px compact height */
+  min-height: 2.5rem !important;
+  max-height: 2.5rem !important;
+  font-size: 1.15rem !important;     /* clear, compact digit font */
+  font-weight: 800 !important;
+  border-radius: 0.625rem !important;
+  padding: 0 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Action keys (Clear & Delete) */
+.mobile-number-screen .touch-keypad__action-key,
+.mobile-number-screen button.touch-keypad__action-key {
+  height: 2.5rem !important;
+  min-height: 2.5rem !important;
+  max-height: 2.5rem !important;
+  border-radius: 0.625rem !important;
+  padding: 0.15rem 0 !important;
+  gap: 0.1rem !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+.mobile-number-screen .touch-keypad__action-key svg {
+  width: 13px !important;
+  height: 13px !important;
+}
+
+.mobile-number-screen .touch-keypad__action-label,
+.mobile-number-screen .touch-keypad__action-key span {
+  font-size: 8.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  line-height: 1 !important;
+}
+
+/* =========================================================================
+   Action CTA Buttons (Continue / Guest Skip)
+   ========================================================================= */
+.mobile-number-screen button.text-sm {
+  padding-top: 0.65rem !important;
+  padding-bottom: 0.65rem !important;
+  font-size: 0.75rem !important;
+  border-radius: 0.625rem !important;
+}
+
+.mobile-number-screen button.text-xs {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+  font-size: 0.7rem !important;
+}

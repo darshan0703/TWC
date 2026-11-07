@@ -1,0 +1,177 @@
+/* =========================================================================
+   CategoryCard.css — Menu Category Card (Hero & Standard Grid Display)
+   Easily adjust width, height, padding, fonts, and colors below.
+   ========================================================================= */
+
+.category-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;              /* 16px */
+  text-align: left;
+  border: 1px solid rgba(216, 207, 196, 0.85);
+  box-shadow: 0 2px 8px rgba(28, 42, 57, 0.05);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.category-card:hover {
+  border-color: rgba(28, 42, 57, 0.5);
+  box-shadow: 0 6px 24px rgba(28, 42, 57, 0.08);
+}
+
+.category-card:active {
+  transform: scale(0.98);
+}
+
+/* Card Heights: easily adjust card heights here */
+.category-card--hero {
+  grid-column: span 2 / span 2;
+  min-height: 145px;                /* Easily adjust hero card height */
+}
+
+@media (min-width: 640px) {
+  .category-card--hero {
+    min-height: 160px;
+  }
+}
+
+.category-card--standard {
+  grid-column: span 1 / span 1;
+  min-height: 135px;                /* Easily adjust standard card height */
+}
+
+@media (min-width: 640px) {
+  .category-card--standard {
+    min-height: 145px;
+  }
+}
+
+/* Background image */
+.category-card__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.category-card:hover .category-card__image {
+  transform: scale(1.05);
+}
+
+/* Scrim Gradient for text contrast */
+.category-card__gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(28, 42, 57, 0.9) 0%, rgba(28, 42, 57, 0.4) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Badges */
+.category-card__tag {
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.5625rem;             /* 9px */
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background-color: rgba(255, 255, 255, 0.95);
+  color: #1C2A39;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.category-card__count-badge {
+  margin-left: auto;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  background-color: rgba(28, 42, 57, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Content Area */
+.category-card__content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.75rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+  box-sizing: border-box;
+}
+
+.category-card__title {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  color: #FFFFFF;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.category-card__title--hero {
+  font-size: 1.25rem;               /* 20px */
+}
+
+@media (min-width: 640px) {
+  .category-card__title--hero {
+    font-size: 1.5rem;
+  }
+}
+
+.category-card__title--standard {
+  font-size: 1rem;                  /* 16px */
+}
+
+@media (min-width: 640px) {
+  .category-card__title--standard {
+    font-size: 1.125rem;
+  }
+}
+
+.category-card__subtitle {
+  font-size: 0.625rem;              /* 10px */
+  color: rgba(255, 255, 255, 0.8);
+  font-family: "Playfair Display", Georgia, serif;
+  font-style: italic;
+  margin-top: 0.125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Circular action button */
+.category-card__action-btn {
+  width: 1.75rem;                   /* 28px */
+  height: 1.75rem;
+  border-radius: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.95);
+  color: #1C2A39;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.category-card:hover .category-card__action-btn {
+  transform: scale(1.08);
+  background-color: #FFFFFF;
+}
+

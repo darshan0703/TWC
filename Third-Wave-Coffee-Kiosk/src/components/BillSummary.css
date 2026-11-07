@@ -1,0 +1,104 @@
+/* =========================================================================
+   BillSummary.css — Order Tray Bill & Tax Calculation Breakdown
+   Easily adjust width, height, padding, fonts, and colors below.
+   ========================================================================= */
+
+.bill-summary {
+  width: 100%;
+  background-color: #FFFFFF;
+  border-radius: 1rem;              /* 16px */
+  padding: 0.875rem;                /* 14px */
+  border: 1px solid rgba(216, 207, 196, 0.8);
+  box-shadow: 0 2px 8px rgba(28, 42, 57, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;                    /* 10px spacing between rows */
+  box-sizing: border-box;
+}
+
+.bill-summary__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(216, 207, 196, 0.7);
+}
+
+.bill-summary__title {
+  font-size: 0.75rem;               /* 12px */
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1C2A39;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+.bill-summary__count-badge {
+  font-size: 0.5625rem;             /* 9px */
+  font-weight: 700;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  background-color: #F0EAE1;
+  color: #1C2A39;
+}
+
+.bill-summary__breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(28, 42, 57, 0.8);
+}
+
+.bill-summary__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bill-summary__row-value {
+  font-weight: 700;
+  color: #1C2A39;
+}
+
+.bill-summary__free-pill {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.5625rem;
+  background-color: #ECFDF5;
+  color: #065F46;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  border: 1px solid #A7F3D0;
+}
+
+.bill-summary__divider {
+  padding-top: 0.5rem;
+  border-top: 2px dashed rgba(216, 207, 196, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bill-summary__grand-total {
+  font-size: 1.125rem;              /* 18px */
+  font-weight: 900;
+  color: #1C2A39;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  line-height: 1.1;
+}
+
+.bill-summary__note-box {
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  background-color: #F8F5EE;
+  border: 1px solid rgba(216, 207, 196, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.5625rem;
+  color: rgba(28, 42, 57, 0.8);
+}
+

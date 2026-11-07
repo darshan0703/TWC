@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './WalletTopUpScreen.css';
 import { KioskHeader } from '../components/KioskHeader';
 import { DemoQrCode } from '../components/DemoQrCode';
 import { useKiosk } from '../context/KioskContext';
@@ -59,7 +60,7 @@ export const WalletTopUpScreen = () => {
   const effectiveAmount = isCustomMode ? (Number(customTopupInput) || 0) : selectedTopupAmount;
 
   return (
-    <div className="w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
+    <div className="wallet-topup-screen w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
       
       {/* Kiosk Header */}
       <KioskHeader

@@ -1,0 +1,81 @@
+/* =========================================================================
+   WalletSuccessScreen.css — Wallet Top-up Confirmation & Next Steps
+   ========================================================================= */
+
+.wallet-success-screen {
+  background-color: #F8F5EE;
+  color: #1C2A39;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  touch-action: manipulation;
+}
+
+/* Central Confirmation Container */
+.wallet-success-screen__card {
+  width: 100%;
+  max-width: 24rem;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  background-color: #FFFFFF;
+  padding: 1.5rem;
+  border-radius: 1.75rem;
+  border: 1px solid rgba(216, 207, 196, 0.85);
+  box-shadow: 0 12px 36px rgba(28, 42, 57, 0.08);
+  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Success Checkmark Circle */
+.wallet-success-screen__check-circle {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 9999px;
+  background-color: #F0EAE1;
+  border: 2px solid #D8CFC4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1C2A39;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Balance Overview Box */
+.wallet-success-screen__balance-box {
+  width: 100%;
+  padding: 0.875rem;
+  border-radius: 1rem;
+  background-color: #F8F5EE;
+  border: 1px solid rgba(216, 207, 196, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 6px rgba(28, 42, 57, 0.03);
+}
+
+/* Continue Order CTA */
+.wallet-success-screen__continue-btn {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 0.75rem;
+  background-color: #1C2A39;
+  color: #FFFFFF;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 14px rgba(28, 42, 57, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid #1C2A39;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wallet-success-screen__continue-btn:active {
+  transform: scale(0.985);
+  background-color: #131E2A;
+}
