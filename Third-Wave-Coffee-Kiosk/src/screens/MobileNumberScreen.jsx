@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './MobileNumberScreen.css';
 import { TwcLogo } from '../components/TwcLogo';
 import { TouchKeypad } from '../components/TouchKeypad';
 import { useKiosk } from '../context/KioskContext';
@@ -65,7 +66,7 @@ export const MobileNumberScreen = () => {
   };
 
   return (
-    <div className="w-full h-full bg-cream-100 flex flex-col justify-between p-4 sm:p-6 select-none overflow-y-auto">
+    <div className="mobile-number-screen w-full h-full bg-cream-100 flex flex-col justify-between p-4 sm:p-6 select-none overflow-y-auto">
       
       {/* Top Header: Brand Logo */}
       <header className="w-full flex justify-center py-2 shrink-0">

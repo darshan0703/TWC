@@ -1,0 +1,101 @@
+/* =========================================================================
+   MobileNumberScreen.css — Customer Mobile Entry & Guest Kiosk Flow
+   ========================================================================= */
+
+.mobile-number-screen {
+  background-color: #F8F5EE;
+  color: #1C2A39;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  touch-action: manipulation;
+}
+
+/* Phone input container styling */
+.mobile-number-screen__input-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background-color: #FFFFFF;
+  border-radius: 1rem;
+  border: 2px solid #D8CFC4;
+  padding: 0.625rem 0.75rem;
+  box-shadow: 0 4px 12px rgba(28, 42, 57, 0.04);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mobile-number-screen__input-card:focus-within {
+  border-color: #1C2A39;
+  box-shadow: 0 0 0 3px rgba(28, 42, 57, 0.12), 0 6px 16px rgba(28, 42, 57, 0.06);
+}
+
+.mobile-number-screen__input-card--error {
+  border-color: #EF4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+  animation: shake 0.4s ease-in-out forwards;
+}
+
+.mobile-number-screen__input-card--confirmed {
+  border-color: #1C2A39;
+  box-shadow: 0 0 0 3px rgba(28, 42, 57, 0.15);
+}
+
+/* Country code pill */
+.mobile-number-screen__country-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.75rem;
+  background-color: #F0EAE1;
+  border: 1px solid rgba(216, 207, 196, 0.8);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* Formatted digits */
+.mobile-number-screen__digits {
+  font-family: "Plus Jakarta Sans", monospace, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #1C2A39;
+}
+
+/* Keypad container */
+.mobile-number-screen__keypad-wrapper {
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Primary Continue CTA */
+.mobile-number-screen__continue-btn {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-number-screen__continue-btn:active:not(:disabled) {
+  transform: scale(0.985);
+  background-color: #131E2A;
+}
+
+/* Skip / Guest button touch target */
+.mobile-number-screen__skip-btn {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-number-screen__skip-btn:active {
+  background-color: rgba(28, 42, 57, 0.05);
+}

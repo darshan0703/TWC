@@ -1,0 +1,28 @@
+/* =========================================================================
+   LineArtIllustrations.css — Minimalist 2D Specialty Coffee Line Art
+   Easily adjust width, height, stroke, and opacity below.
+   ========================================================================= */
+
+.line-art-illustration {
+  display: inline-block;
+  vertical-align: middle;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+/* Individual Illustration Sizes: easily adjust width & height here */
+.line-art-illustration--moment {
+  width: 12rem;                     /* 192px */
+  height: 12rem;
+}
+
+.line-art-illustration--cup {
+  width: 8rem;                      /* 128px */
+  height: 8rem;
+}
+
+.line-art-illustration--pastry {
+  width: 1.75rem;                   /* 28px */
+  height: 1.75rem;
+}
+

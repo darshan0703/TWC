@@ -1,4 +1,5 @@
 import React from 'react';
+import './WalletSuccessScreen.css';
 import { TwcLogo } from '../components/TwcLogo';
 import { useKiosk } from '../context/KioskContext';
 import { Check, Wallet, ArrowRight, Sparkles } from 'lucide-react';
@@ -7,7 +8,7 @@ export const WalletSuccessScreen = () => {
   const { walletBalance, lastTopupAmount, navigateTo } = useKiosk();
 
   return (
-    <div className="w-full h-full bg-cream-100 flex flex-col justify-between p-4 sm:p-6 select-none overflow-y-auto">
+    <div className="wallet-success-screen w-full h-full bg-cream-100 flex flex-col justify-between p-4 sm:p-6 select-none overflow-y-auto">
       
       {/* Top Header: Logo */}
       <header className="w-full flex justify-center py-2 shrink-0">

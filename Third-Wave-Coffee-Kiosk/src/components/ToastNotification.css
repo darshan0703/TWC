@@ -1,0 +1,106 @@
+/* =========================================================================
+   ToastNotification.css — Global Floating Kiosk Toast Notification
+   Easily adjust position, width, padding, fonts, and colors below.
+   ========================================================================= */
+
+.toast-notification {
+  position: absolute;
+  bottom: 4rem;                     /* 64px from bottom: easily adjust placement */
+  left: 0.875rem;                   /* 14px */
+  right: 0.875rem;
+  z-index: 50;
+  pointer-events: none;
+  animation: bounceShort 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes bounceShort {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast-notification__card {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  background-color: #1C2A39;
+  color: #FFFFFF;
+  padding: 0.625rem 0.875rem;       /* 10px 14px */
+  border-radius: 1rem;              /* 16px */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-sizing: border-box;
+}
+
+.toast-notification__icon-box {
+  width: 1.5rem;                    /* 24px */
+  height: 1.5rem;
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  flex-shrink: 0;
+}
+
+.toast-notification__message {
+  font-size: 0.75rem;               /* 12px */
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+/* Action button (e.g. "VIEW TRAY") */
+.toast-notification__action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;        /* 4px 10px */
+  border-radius: 0.5rem;
+  background-color: #FFFFFF;
+  color: #1C2A39;
+  font-size: 0.625rem;             /* 10px */
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.toast-notification__action-btn:hover {
+  background-color: #F8F5EE;
+}
+
+.toast-notification__action-btn:active {
+  transform: scale(0.95);
+}
+
+.toast-notification__close-btn {
+  color: rgba(255, 255, 255, 0.6);
+  padding: 0.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast-notification__close-btn:hover {
+  color: #FFFFFF;
+}
+

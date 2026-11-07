@@ -1,4 +1,5 @@
 import React from 'react';
+import './MenuScreen.css';
 import { KioskHeader } from '../components/KioskHeader';
 import { KioskFooter } from '../components/KioskFooter';
 import { CategorySidebar } from '../components/CategorySidebar';
@@ -44,7 +45,7 @@ export const MenuScreen = () => {
   const premiumProducts = currentProducts.filter(p => p.badgeType === 'premium' || p.badge === 'Premium');
 
   return (
-    <div className="w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
+    <div className="menu-screen w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
       
       {/* Kiosk Header */}
       <KioskHeader

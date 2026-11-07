@@ -1,4 +1,5 @@
 import React from 'react';
+import './MainCategoryScreen.css';
 import { KioskHeader } from '../components/KioskHeader';
 import { KioskFooter } from '../components/KioskFooter';
 import { CategoryCard } from '../components/CategoryCard';
@@ -19,7 +20,7 @@ export const MainCategoryScreen = () => {
   };
 
   return (
-    <div className="w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
+    <div className="main-category-screen w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
       
       {/* Kiosk Header */}
       <KioskHeader

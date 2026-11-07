@@ -1,0 +1,112 @@
+/* =========================================================================
+   MenuScreen.css — Hierarchical Menu Navigation & Product Display Grid
+   ========================================================================= */
+
+.menu-screen {
+  background-color: #F8F5EE;
+  color: #1C2A39;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  touch-action: manipulation;
+}
+
+/* Horizontal Top Category Switcher Bar */
+.menu-screen__top-bar {
+  flex-shrink: 0;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid rgba(216, 207, 196, 0.8);
+  padding: 0.375rem 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem;
+  box-shadow: 0 2px 6px rgba(28, 42, 57, 0.04);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.menu-screen__top-bar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Top Category Tab Button */
+.menu-screen__cat-tab {
+  flex: 1 1 0%;
+  min-width: 72px;
+  min-height: 40px;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.menu-screen__cat-tab:active {
+  transform: scale(0.96);
+}
+
+.menu-screen__cat-tab--active {
+  background-color: #1C2A39;
+  color: #FFFFFF;
+  border-color: #1C2A39;
+  box-shadow: 0 2px 8px rgba(28, 42, 57, 0.18);
+  font-weight: 800;
+}
+
+.menu-screen__cat-tab--inactive {
+  background-color: rgba(248, 245, 238, 0.7);
+  color: rgba(28, 42, 57, 0.75);
+  border-color: rgba(216, 207, 196, 0.6);
+  font-weight: 600;
+}
+
+.menu-screen__cat-tab--inactive:hover {
+  background-color: #F0EAE1;
+  color: #1C2A39;
+}
+
+/* Subcategory Banner Card */
+.menu-screen__banner {
+  background-color: #FFFFFF;
+  border-radius: 0.875rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid rgba(216, 207, 196, 0.8);
+  box-shadow: 0 2px 8px rgba(28, 42, 57, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.menu-screen__count-pill {
+  flex-shrink: 0;
+  padding: 0.1875rem 0.625rem;
+  border-radius: 0.5rem;
+  background-color: #F0EAE1;
+  font-size: 9px;
+  font-weight: 800;
+  color: #1C2A39;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+/* Product Section Grids */
+.menu-screen__section-title {
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #1C2A39;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+.menu-screen__product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}

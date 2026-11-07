@@ -1,0 +1,74 @@
+/* =========================================================================
+   DemoQrCode.css — Simulated UPI QR Code Display for Kiosk Demos
+   Easily adjust width, height, padding, fonts, and colors below.
+   ========================================================================= */
+
+.demo-qr-code {
+  width: 100%;
+  background-color: #FFFFFF;
+  border-radius: 1rem;              /* 16px */
+  padding: 0.875rem;                /* 14px */
+  border: 2px dashed #D8CFC4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(28, 42, 57, 0.04);
+  box-sizing: border-box;
+}
+
+.demo-qr-code__warning {
+  width: 100%;
+  background-color: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  margin-bottom: 0.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  color: #78350F;
+  font-weight: 800;
+  font-size: 0.625rem;             /* 10px */
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.demo-qr-code__svg-card {
+  position: relative;
+  padding: 0.75rem;
+  background-color: #FFFFFF;
+  border-radius: 0.75rem;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(216, 207, 196, 0.6);
+  margin-bottom: 0.625rem;
+}
+
+/* QR Code SVG: easily adjust QR dimensions here */
+.demo-qr-code__svg {
+  width: 9rem;                      /* 144px */
+  height: 9rem;
+  display: block;
+}
+
+@media (min-width: 640px) {
+  .demo-qr-code__svg {
+    width: 10rem;                   /* 160px */
+    height: 10rem;
+  }
+}
+
+.demo-qr-code__amount-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  background-color: #F0EAE1;
+  color: #1C2A39;
+  font-size: 0.75rem;
+  font-weight: 800;
+  margin-bottom: 0.25rem;
+}
+

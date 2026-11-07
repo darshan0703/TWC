@@ -1,4 +1,5 @@
 import React from 'react';
+import './OrderConfirmationScreen.css';
 import { TwcLogo } from '../components/TwcLogo';
 import { useKiosk } from '../context/KioskContext';
 import { Check, Sparkles, RotateCcw, Coffee } from 'lucide-react';
@@ -31,7 +32,7 @@ export const OrderConfirmationScreen = () => {
   };
 
   return (
-    <div className="relative w-full h-full bg-cream-100 flex flex-col justify-between p-4 sm:p-6 select-none overflow-y-auto">
+    <div className="order-confirmation-screen relative w-full h-full bg-cream-100 flex flex-col justify-between p-4 sm:p-6 select-none overflow-y-auto">
       
       {/* Background Soft Line Art Graphic */}
       <div className="absolute inset-0 pointer-events-none opacity-10">
