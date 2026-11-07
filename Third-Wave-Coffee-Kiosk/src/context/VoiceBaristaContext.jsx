@@ -97,19 +97,29 @@ export const VoiceBaristaProvider = ({ children }) => {
   const [isAwaitingConfirmation, setIsAwaitingConfirmation] = useState(false);
 
   const activeTurnIdRef = useRef(0);
+  const activeSessionIdRef = useRef(null);
   const prevScreenRef = useRef(kiosk.currentScreen);
   const handleStopListeningRef = useRef(null);
   const isAwaitingConfirmationRef = useRef(false);
   isAwaitingConfirmationRef.current = isAwaitingConfirmation;
+  activeSessionIdRef.current = sessionId;
 
   // Initialize session ID silently on mount WITHOUT activating microphone or speaking audio
   useEffect(() => {
     let isMounted = true;
     const initialId = `twc-${Math.random().toString(36).substr(2, 8)}`;
+    activeSessionIdRef.current = initialId;
     setSessionId(initialId);
+    kiosk.setMobileNumber('');
 
     // Warm session with backend in background without audio
-    startSession(initialId).catch(() => {});
+    startSession(initialId).then((data) => {
+      if (isMounted && data && data.session_id === activeSessionIdRef.current) {
+        if (data.mobile_number !== undefined && data.mobile_number !== null) {
+          kiosk.setMobileNumber(data.mobile_number);
+        }
+      }
+    }).catch(() => {});
 
     return () => {
       isMounted = false;
@@ -119,7 +129,19 @@ export const VoiceBaristaProvider = ({ children }) => {
 
   // Handle Barista Action Payload against Kiosk Context
   const handleAssistantActions = useCallback((response) => {
-    const { actions = [], active_screen, cart: backendCart } = response;
+    if (!response) return;
+    // Strict race guard: discard if response belongs to a previous / superseded session
+    if (response.session_id && response.session_id !== activeSessionIdRef.current) {
+      console.warn('[VoiceBarista] Discarding actions from outdated session:', response.session_id, 'current:', activeSessionIdRef.current);
+      return;
+    }
+
+    const { actions = [], active_screen, cart: backendCart, mobile_number } = response;
+
+    // Sync canonical mobile number from backend response if returned
+    if (mobile_number !== undefined && mobile_number !== null) {
+      kiosk.setMobileNumber(mobile_number);
+    }
 
     // 1. Specific UI Actions
     for (const act of actions) {
@@ -212,16 +234,21 @@ export const VoiceBaristaProvider = ({ children }) => {
       }
     }
 
+    const requestSessionId = sessionId;
     try {
       const resp = await sendMessage({
-        sessionId,
+        sessionId: requestSessionId,
         message: customerText,
         currentScreen: kiosk.currentScreen,
         selectedCategory: kiosk.selectedMainCategory,
         selectedProductId: kiosk.selectedProduct?.id,
       });
 
-      if (currentTurn !== activeTurnIdRef.current) return; // Stale turn
+      // Strict race & stale guards: discard if turn advanced or session changed
+      if (currentTurn !== activeTurnIdRef.current || requestSessionId !== activeSessionIdRef.current) {
+        console.warn('[VoiceBarista] Discarding response from obsolete session or stale turn');
+        return;
+      }
 
       const replyText = resp.response || "Here's what I found for you!";
       setAssistantReply(replyText);
@@ -321,10 +348,12 @@ export const VoiceBaristaProvider = ({ children }) => {
     setTranscript('');
     setIsAwaitingConfirmation(false);
     setPageHint(PAGE_HINTS.welcome);
+    kiosk.setMobileNumber('');
     const freshId = `twc-${Math.random().toString(36).substr(2, 8)}`;
+    activeSessionIdRef.current = freshId;
     setSessionId(freshId);
     return freshId;
-  }, [sessionId]);
+  }, [sessionId, kiosk]);
 
   // Listen for global session reset events dispatched across kiosk components
   useEffect(() => {
@@ -341,7 +370,9 @@ export const VoiceBaristaProvider = ({ children }) => {
   const startVoiceSession = useCallback(async () => {
     // Generate and initialize fresh session ID for this customer interaction
     const freshId = `twc-${Math.random().toString(36).substr(2, 8)}`;
+    activeSessionIdRef.current = freshId;
     setSessionId(freshId);
+    kiosk.setMobileNumber('');
     startSession(freshId).catch(() => {});
 
     const currentTurn = ++activeTurnIdRef.current;
@@ -414,7 +445,9 @@ export const VoiceBaristaProvider = ({ children }) => {
         setTranscript('');
         setIsAwaitingConfirmation(false);
         setPageHint(PAGE_HINTS.welcome);
+        kiosk.setMobileNumber('');
         const freshId = `twc-${Math.random().toString(36).substr(2, 8)}`;
+        activeSessionIdRef.current = freshId;
         setSessionId(freshId);
         return;
       }

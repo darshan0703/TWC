@@ -129,3 +129,32 @@ export async function fetchArchivedOrder(orderNumber) {
   }
 }
 
+export async function updateCustomerPhone({ sessionId, phoneNumber, action = 'set' }) {
+  const res = await fetch(`${BASE_URL}/session/phone`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      session_id: sessionId,
+      phone_number: phoneNumber,
+      action,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to update phone: ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+export async function fetchSessionState(sessionId) {
+  if (!sessionId) return null;
+  try {
+    const res = await fetch(`${BASE_URL}/session/${sessionId}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('[TWC API] Could not fetch session state:', err);
+    return null;
+  }
+}
+
