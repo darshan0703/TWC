@@ -19,13 +19,29 @@ export const CustomizationScreen = () => {
   const [extraShot, setExtraShot] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
+  // Derive available sizes: exact independent prices from photographs
+  // If product does not list Large, never display an invented large option
+  const availableSizes = useMemo(() => {
+    if (product.largePrice != null && product.largePrice > product.price) {
+      const diff = product.largePrice - product.price;
+      return [
+        { id: 'Regular', label: 'Regular', sizeMl: 'Standard Cup', priceDiff: 0 },
+        { id: 'Large', label: 'Large', sizeMl: 'Large Cup', priceDiff: diff }
+      ];
+    }
+    return [
+      { id: 'Regular', label: 'Regular', sizeMl: 'Standard Cup', priceDiff: 0 }
+    ];
+  }, [product]);
+
   // Calculate live item unit price based on customization
   const unitPrice = useMemo(() => {
     let base = product.price;
 
-    // Size add-on
-    const sizeConfig = CUSTOMIZATION_OPTIONS.sizes.find(s => s.id === size);
-    if (sizeConfig) base += sizeConfig.priceDiff;
+    // Size add-on (exact menu photograph price)
+    if (size === 'Large' && product.largePrice != null) {
+      base = product.largePrice;
+    }
 
     // Milk add-on
     const milkConfig = CUSTOMIZATION_OPTIONS.milks.find(m => m.id === milk || m.label === milk);
@@ -35,7 +51,7 @@ export const CustomizationScreen = () => {
     if (extraShot) base += CUSTOMIZATION_OPTIONS.extraShotPrice;
 
     return base;
-  }, [product.price, size, milk, extraShot]);
+  }, [product.price, product.largePrice, size, milk, extraShot]);
 
   const totalPrice = unitPrice * quantity;
 
@@ -150,8 +166,8 @@ export const CustomizationScreen = () => {
               <span className="text-[10px] text-taupe-warm font-medium">Single choice</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {CUSTOMIZATION_OPTIONS.sizes.map((s) => {
+            <div className={`grid ${availableSizes.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+              {availableSizes.map((s) => {
                 const isSelected = size === s.id;
                 return (
                   <button

@@ -48,7 +48,16 @@ const loadStorage = (key, fallback) => {
   try {
     const raw = sessionStorage.getItem(`twc_${key}`);
     if (raw === null || raw === undefined) return fallback;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    // Sanitize any stale demo cart records so new sessions start completely clean
+    if (key === 'cart' && Array.isArray(parsed)) {
+      const hasDemoItems = parsed.some(item => item.cartId === 'item-demo-1' || item.cartId === 'item-demo-2');
+      if (hasDemoItems) {
+        sessionStorage.removeItem('twc_cart');
+        return fallback;
+      }
+    }
+    return parsed;
   } catch (_) {
     return fallback;
   }
@@ -79,7 +88,8 @@ export const KioskProvider = ({ children }) => {
 
   // Session / Order Mode
   const [orderType, setOrderType] = useState(() => loadStorage('orderType', 'dine_in'));
-  const [mobileNumber, setMobileNumber] = useState(() => loadStorage('mobileNumber', ''));
+  // Canonical phone number rendered directly from backend session state (never persisted in browser storage)
+  const [mobileNumber, setMobileNumber] = useState('');
 
   // 4 Primary Menu Categories: 'coffee' | 'beverages' | 'food' | 'specials'
   const [selectedMainCategory, setSelectedMainCategory] = useState(() => loadStorage('selectedMainCategory', 'coffee'));
@@ -89,39 +99,8 @@ export const KioskProvider = ({ children }) => {
   // Customization selection
   const [selectedProduct, setSelectedProduct] = useState(() => loadStorage('selectedProduct', null));
 
-  // Cart: initial sample items for kiosk ready experience
-  const [cart, setCart] = useState(() => loadStorage('cart', [
-    {
-      cartId: 'item-demo-1',
-      productId: 'cappuccino',
-      name: 'Cappuccino',
-      image: 'https://images.unsplash.com/photo-1534778101976-62847782c213?auto=format&fit=crop&w=800&q=80',
-      unitPrice: 260,
-      quantity: 1,
-      size: 'Regular',
-      temperature: 'Hot',
-      milk: 'Standard Dairy',
-      sugar: 'Regular Sugar',
-      extraShot: false,
-      totalPrice: 260,
-      customizationsSummary: ['Regular (240ml)', 'Hot', 'Standard Milk', 'Regular Sugar']
-    },
-    {
-      cartId: 'item-demo-2',
-      productId: 'vietnamese_shakerato',
-      name: 'Vietnamese Shakerato',
-      image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?auto=format&fit=crop&w=800&q=80',
-      unitPrice: 310,
-      quantity: 1,
-      size: 'Regular',
-      temperature: 'Iced',
-      milk: 'Standard Dairy',
-      sugar: 'Condensed Milk Blend',
-      extraShot: false,
-      totalPrice: 310,
-      customizationsSummary: ['Regular (240ml)', 'Iced', 'Condensed Milk Recipe']
-    }
-  ]));
+  // Cart: clean empty initial state for kiosk customer (0 items, ₹0 total)
+  const [cart, setCart] = useState(() => loadStorage('cart', []));
 
   // Wallet
   const [walletBalance, setWalletBalance] = useState(() => loadStorage('walletBalance', 450));
@@ -135,9 +114,8 @@ export const KioskProvider = ({ children }) => {
   // Toast Notification
   const [toast, setToast] = useState({ show: false, message: '', actionText: '', onAction: null });
 
-  // Sync state changes to sessionStorage
+  // Sync state changes to sessionStorage (PII / phone numbers are strictly excluded)
   useEffect(() => { saveStorage('orderType', orderType); }, [orderType]);
-  useEffect(() => { saveStorage('mobileNumber', mobileNumber); }, [mobileNumber]);
   useEffect(() => { saveStorage('selectedMainCategory', selectedMainCategory); }, [selectedMainCategory]);
   useEffect(() => { saveStorage('selectedSubcategory', selectedSubcategory); }, [selectedSubcategory]);
   useEffect(() => { saveStorage('selectedProduct', selectedProduct); }, [selectedProduct]);

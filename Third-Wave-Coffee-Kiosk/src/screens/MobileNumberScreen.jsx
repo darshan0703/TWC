@@ -1,28 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './MobileNumberScreen.css';
 import { TwcLogo } from '../components/TwcLogo';
 import { TouchKeypad } from '../components/TouchKeypad';
 import { useKiosk } from '../context/KioskContext';
 import { useVoiceBarista } from '../context/VoiceBaristaContext';
+import { updateCustomerPhone } from '../services/api';
 import { ShieldCheck, ArrowRight, AlertCircle, Check, RotateCcw } from 'lucide-react';
 
 export const MobileNumberScreen = () => {
   const { mobileNumber, setMobileNumber, navigateTo } = useKiosk();
   const {
+    sessionId,
     isAwaitingConfirmation,
     confirmNumber,
     cancelConfirmation,
     setIsAwaitingConfirmation,
   } = useVoiceBarista();
+
+  // Temporary local input draft while typing on the touchscreen keypad
+  const [inputDraft, setInputDraft] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Synchronize draft with canonical backend state (or reset on session renewal)
+  useEffect(() => {
+    if (mobileNumber) {
+      setInputDraft(mobileNumber);
+    } else if (!isAwaitingConfirmation) {
+      setInputDraft('');
+    }
+  }, [mobileNumber, isAwaitingConfirmation]);
+
+  // Current active display string (local draft takes precedence while actively typing)
+  const activeNumber = inputDraft || mobileNumber || '';
 
   const handleKeyPress = (num) => {
     if (isAwaitingConfirmation && setIsAwaitingConfirmation) {
       setIsAwaitingConfirmation(false);
     }
-    if (mobileNumber.length >= 10) return;
-    const nextVal = mobileNumber + num;
-    setMobileNumber(nextVal);
+    if (activeNumber.length >= 10) return;
+    const nextVal = activeNumber + num;
+    setInputDraft(nextVal);
     if (nextVal.length === 10) {
       setError('');
     }
@@ -32,7 +50,7 @@ export const MobileNumberScreen = () => {
     if (isAwaitingConfirmation && setIsAwaitingConfirmation) {
       setIsAwaitingConfirmation(false);
     }
-    setMobileNumber(prev => prev.slice(0, -1));
+    setInputDraft(prev => (prev.length > 0 ? prev.slice(0, -1) : ''));
     setError('');
   };
 
@@ -40,29 +58,59 @@ export const MobileNumberScreen = () => {
     if (isAwaitingConfirmation && setIsAwaitingConfirmation) {
       setIsAwaitingConfirmation(false);
     }
+    setInputDraft('');
     setMobileNumber('');
     setError('');
+    if (sessionId) {
+      updateCustomerPhone({ sessionId, action: 'clear' }).catch(() => {});
+    }
   };
 
-  const handleContinue = () => {
-    if (mobileNumber.length !== 10) {
+  const handleContinue = async () => {
+    if (activeNumber.length !== 10) {
       setError('Please enter a valid 10-digit Indian mobile number');
       return;
     }
     setError('');
-    navigateTo('categories');
+    setIsSubmitting(true);
+
+    try {
+      if (sessionId) {
+        // Send number to authoritative backend session store
+        const res = await updateCustomerPhone({
+          sessionId,
+          phoneNumber: activeNumber,
+          action: 'set',
+        });
+        if (res && res.session_id === sessionId) {
+          setMobileNumber(res.mobile_number || activeNumber);
+        }
+      } else {
+        setMobileNumber(activeNumber);
+      }
+      navigateTo('categories');
+    } catch (err) {
+      setError(err.message || 'Failed to validate mobile number');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
     setError('');
+    setInputDraft('');
+    setMobileNumber('');
+    if (sessionId) {
+      updateCustomerPhone({ sessionId, action: 'skip' }).catch(() => {});
+    }
     navigateTo('categories');
   };
 
   // Format 10-digit number like "98765 43210"
   const formattedDisplay = () => {
-    if (!mobileNumber) return '';
-    if (mobileNumber.length <= 5) return mobileNumber;
-    return `${mobileNumber.slice(0, 5)} ${mobileNumber.slice(5)}`;
+    if (!activeNumber) return '';
+    if (activeNumber.length <= 5) return activeNumber;
+    return `${activeNumber.slice(0, 5)} ${activeNumber.slice(5)}`;
   };
 
   return (
@@ -103,7 +151,7 @@ export const MobileNumberScreen = () => {
 
             {/* Display digits */}
             <div className="flex-1 px-3 text-left">
-              {mobileNumber ? (
+              {activeNumber ? (
                 <span className="text-xl sm:text-2xl font-extrabold text-navy tracking-widest font-sans">
                   {formattedDisplay()}
                 </span>
@@ -117,11 +165,11 @@ export const MobileNumberScreen = () => {
             {/* Digit counter */}
             <div className="px-2">
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                mobileNumber.length === 10
+                activeNumber.length === 10
                   ? 'bg-emerald-100 text-emerald-800'
                   : 'bg-cream-200 text-taupe-warm'
               }`}>
-                {mobileNumber.length}/10
+                {activeNumber.length}/10
               </span>
             </div>
           </div>
@@ -181,14 +229,14 @@ export const MobileNumberScreen = () => {
               <button
                 type="button"
                 onClick={handleContinue}
-                disabled={mobileNumber.length > 0 && mobileNumber.length < 10}
+                disabled={activeNumber.length !== 10 || isSubmitting}
                 className={`w-full py-3.5 rounded-xl text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-[0.99] shadow-sm ${
-                  mobileNumber.length === 10
+                  activeNumber.length === 10 && !isSubmitting
                     ? 'bg-navy hover:bg-navy-charcoal text-white cursor-pointer border border-navy'
                     : 'bg-beige-muted text-navy/40 cursor-not-allowed border border-beige-muted'
                 }`}
               >
-                <span>CONTINUE</span>
+                <span>{isSubmitting ? 'VALIDATING...' : 'CONTINUE'}</span>
                 <ArrowRight className="w-4 h-4 text-white" />
               </button>
 

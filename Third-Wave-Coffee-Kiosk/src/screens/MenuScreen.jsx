@@ -40,9 +40,9 @@ export const MenuScreen = () => {
   // Products belonging strictly to this subcategory (exactly 4 products)
   const currentProducts = PRODUCTS.filter(p => p.subcategory === currentSub.id);
 
-  // Group into 2 Popular/Special + 2 Premium items
-  const popularProducts = currentProducts.filter(p => p.badgeType === 'popular' || p.badge !== 'Premium');
-  const premiumProducts = currentProducts.filter(p => p.badgeType === 'premium' || p.badge === 'Premium');
+  // Group cleanly into Popular & Specials vs Premium Selection (no duplicate rendering)
+  const popularProducts = currentProducts.filter(p => p.badgeType !== 'premium');
+  const premiumProducts = currentProducts.filter(p => p.badgeType === 'premium');
 
   return (
     <div className="menu-screen w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
@@ -111,58 +111,62 @@ export const MenuScreen = () => {
               </p>
             </div>
 
-            <div className="shrink-0 px-2 py-0.5 rounded-lg bg-cream-200 text-[9px] font-bold text-navy uppercase">
-              4 Featured Items
+            <div className="shrink-0 px-2 py-0.5 rounded-lg bg-cream-200 text-[9px] font-bold text-navy uppercase font-sans">
+              {currentProducts.length} {currentProducts.length === 1 ? 'Product' : 'Products'}
             </div>
           </div>
 
-          {/* SECTION 1: Popular & Specials (Exactly 2 Cards) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 px-1">
-              <Sparkles className="w-3.5 h-3.5 text-[#E25C38]" />
-              <h3 className="text-[11px] font-black uppercase tracking-wider text-navy font-sans">
-                Popular & Specials
-              </h3>
-              <span className="text-[9px] text-taupe-warm font-serif italic">
-                (Customer Favourites)
-              </span>
-            </div>
+          {/* SECTION 1: Popular & Specials */}
+          {popularProducts.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5 px-1">
+                <Sparkles className="w-3.5 h-3.5 text-[#E25C38]" />
+                <h3 className="text-[11px] font-black uppercase tracking-wider text-navy font-sans">
+                  Popular & Specials
+                </h3>
+                <span className="text-[9px] text-taupe-warm font-serif italic">
+                  (Customer Favourites)
+                </span>
+              </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {popularProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onAdd={addDirectToCart}
-                  onOpenDetail={openCustomization}
-                />
-              ))}
+              <div className="grid grid-cols-2 gap-2">
+                {popularProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAdd={addDirectToCart}
+                    onOpenDetail={openCustomization}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* SECTION 2: Premium Selection (Exactly 2 Cards) */}
-          <div className="space-y-1.5 pt-1">
-            <div className="flex items-center gap-1.5 px-1">
-              <Award className="w-3.5 h-3.5 text-navy" />
-              <h3 className="text-[11px] font-black uppercase tracking-wider text-navy font-sans">
-                Premium Selection
-              </h3>
-              <span className="text-[9px] text-taupe-warm font-serif italic">
-                (Master Barista Reserve)
-              </span>
-            </div>
+          {/* SECTION 2: Premium Selection */}
+          {premiumProducts.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center gap-1.5 px-1">
+                <Award className="w-3.5 h-3.5 text-navy" />
+                <h3 className="text-[11px] font-black uppercase tracking-wider text-navy font-sans">
+                  Premium Selection
+                </h3>
+                <span className="text-[9px] text-taupe-warm font-serif italic">
+                  (Master Barista Reserve)
+                </span>
+              </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {premiumProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onAdd={addDirectToCart}
-                  onOpenDetail={openCustomization}
-                />
-              ))}
+              <div className="grid grid-cols-2 gap-2">
+                {premiumProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAdd={addDirectToCart}
+                    onOpenDetail={openCustomization}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
         </main>
       </div>

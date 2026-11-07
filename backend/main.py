@@ -7,6 +7,7 @@ import os
 import sys
 import uuid
 import time
+import re
 from typing import Optional, Dict, Any
 from pathlib import Path
 
@@ -70,6 +71,11 @@ class SessionStartRequest(BaseModel):
 class SessionEndRequest(BaseModel):
     session_id: str
     reason: Optional[str] = "reset"
+
+class CustomerPhoneRequest(BaseModel):
+    session_id: str
+    phone_number: Optional[str] = None
+    action: Optional[str] = "set"  # "set", "clear", "skip"
 
 class MessageRequest(BaseModel):
     session_id: str = Field(..., description="Unique customer session identifier")
@@ -140,6 +146,8 @@ def start_session(req: SessionStartRequest):
         "speakable_greeting": greeting,
         "cart": state.cart.to_dict(),
         "active_screen": state.ui.active_screen,
+        "mobile_number": state.get("mobile_number"),
+        "staged_mobile_number": state.get("staged_mobile_number"),
     }
 
 @app.post("/message")
@@ -152,6 +160,9 @@ def send_message(req: MessageRequest):
     session_id = req.session_id
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id is required")
+
+    state = state_manager.get_session(session_id)
+    session_lifecycle.touch_session(session_id)
 
     # Update authoritative UI state if provided by frontend
     if req.current_screen or req.selected_category or req.selected_product_id:
@@ -179,6 +190,8 @@ def send_message(req: MessageRequest):
         "cart": response.get("cart", {}),
         "selected_product": response.get("selected_product"),
         "active_screen": response.get("active_screen", "menu"),
+        "mobile_number": state.get("mobile_number"),
+        "staged_mobile_number": state.get("staged_mobile_number"),
         "processing_time_ms": round(duration_ms, 2)
     }
 
@@ -199,6 +212,81 @@ def update_screen(req: ScreenUpdateRequest):
         "focused_product_id": state.ui.focused_product_id,
         "page_prompt": prompt,
         "speakable_prompt": audio_service.clean_text_for_speech(prompt),
+    }
+
+@app.post("/session/phone")
+def set_customer_phone(req: CustomerPhoneRequest):
+    """
+    Authoritative backend endpoint to set, clear, or skip the customer's phone number
+    for an active session. Validates 10-digit Indian mobile numbers.
+    """
+    state = state_manager.get_session(req.session_id)
+    session_lifecycle.touch_session(req.session_id)
+
+    action = (req.action or "set").lower()
+    if action == "clear":
+        state["mobile_number"] = None
+        state["staged_mobile_number"] = None
+        state["pending_number_confirmation"] = False
+        log_safe(f"Session {req.session_id}: Phone cleared.")
+        return {
+            "success": True,
+            "session_id": req.session_id,
+            "mobile_number": None,
+            "masked_phone": None,
+            "active_screen": state.ui.active_screen,
+        }
+    elif action == "skip":
+        state["mobile_number"] = None
+        state["staged_mobile_number"] = None
+        state["pending_number_confirmation"] = False
+        state.ui.active_screen = "categories"
+        log_safe(f"Session {req.session_id}: Phone entry skipped (Guest checkout).")
+        return {
+            "success": True,
+            "session_id": req.session_id,
+            "mobile_number": None,
+            "masked_phone": None,
+            "active_screen": "categories",
+        }
+    elif action == "set":
+        raw = req.phone_number or ""
+        digits = re.sub(r"\D", "", raw)
+        clean_phone = digits[-10:] if len(digits) >= 10 else digits
+        if len(clean_phone) != 10:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid phone number: Must be a valid 10-digit Indian mobile number."
+            )
+        state["mobile_number"] = clean_phone
+        state["staged_mobile_number"] = None
+        state["pending_number_confirmation"] = False
+        state.ui.active_screen = "categories"
+        log_safe(f"Session {req.session_id}: Canonical phone set to {mask_phone_number(clean_phone)}.")
+        return {
+            "success": True,
+            "session_id": req.session_id,
+            "mobile_number": clean_phone,
+            "masked_phone": mask_phone_number(clean_phone),
+            "active_screen": "categories",
+        }
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid action '{req.action}'. Expected 'set', 'clear', or 'skip'.")
+
+@app.get("/session/{session_id}")
+def get_canonical_session(session_id: str):
+    """
+    Returns the canonical backend session state, including mobile number,
+    active screen, and cart.
+    """
+    state = state_manager.get_session(session_id)
+    return {
+        "session_id": session_id,
+        "active_screen": state.ui.active_screen,
+        "mobile_number": state.get("mobile_number"),
+        "staged_mobile_number": state.get("staged_mobile_number"),
+        "customer_preferences": state.get("customer_preferences"),
+        "cart": state.cart.to_dict(),
     }
 
 @app.post("/session/end")
