@@ -9,13 +9,14 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
+    font-family: 'Lato', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-touch-callout: none;
     user-select: none;
     -webkit-user-select: none;
     background-color: #0c0c0c;
-    color: #30251F;
+    color: #1C2A39;
   }
 
   /* Elegant subtle scrollbar for kiosk touch screens */
@@ -62,4 +63,3 @@
 .animate-shake {
   animation: shake 0.4s ease-in-out forwards;
 }
-

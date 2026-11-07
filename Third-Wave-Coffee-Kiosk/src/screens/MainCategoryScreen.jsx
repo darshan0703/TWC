@@ -22,28 +22,27 @@ export const MainCategoryScreen = () => {
   return (
     <div className="main-category-screen w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
       
-      {/* Kiosk Header */}
+      {/* Kiosk Header: Back button + Centered Logo (Top OrderType & Cart removed as requested) */}
       <KioskHeader
-        title="Menu Overview"
-        subtitle="Four primary categories"
         showBack={true}
-        showCart={true}
+        showCart={false}
+        showOrderType={false}
         onBackOverride={() => navigateTo('mobile')}
       />
 
       {/* Main Content Area (Scrollable within 9:16 portrait canvas) */}
       <main className="w-full px-4 py-3 flex-1 flex flex-col overflow-y-auto">
         
-        {/* Editorial Heading */}
-        <div className="mb-3 pb-2 border-b border-beige-muted/70 shrink-0">
-          <div className="flex items-center gap-1.5 text-navy text-[10px] font-black uppercase tracking-[0.2em] mb-0.5 font-sans">
-            <Sparkles className="w-3.5 h-3.5 text-twc-terracotta" />
+        {/* Editorial Heading (Reduced size) */}
+        <div className="main-category-screen__heading-box mb-2.5 pb-2 border-b border-beige-muted/70 shrink-0">
+          <div className="flex items-center gap-1.5 text-navy text-[9px] font-black uppercase tracking-[0.2em] mb-0.5 font-sans">
+            <Sparkles className="w-3 h-3 text-twc-terracotta" />
             <span>Third Wave Coffee Menu</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-navy tracking-tight uppercase font-sans">
+          <h2 className="main-category-screen__title text-lg sm:text-xl font-black text-navy tracking-tight uppercase font-sans">
             What are you craving today?
           </h2>
-          <p className="text-xs text-taupe-warm font-serif italic mt-0.5">
+          <p className="text-[11px] text-taupe-warm font-serif italic mt-0.5">
             Select a category to explore our handcrafted coffees & food
           </p>
         </div>
@@ -115,7 +114,7 @@ export const MainCategoryScreen = () => {
       </main>
 
       {/* Persistent Bottom Bar */}
-      <KioskFooter activeTab="home" />
+      <KioskFooter />
 
     </div>
   );

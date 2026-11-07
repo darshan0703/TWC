@@ -6,7 +6,7 @@ import { CategorySidebar } from '../components/CategorySidebar';
 import { ProductCard } from '../components/ProductCard';
 import { MAIN_CATEGORIES, PRODUCTS } from '../data/products';
 import { useKiosk } from '../context/KioskContext';
-import { Coffee, CupSoda, UtensilsCrossed, Sparkles, Award, Flame } from 'lucide-react';
+import { Coffee, CupSoda, UtensilsCrossed, Sparkles, Award } from 'lucide-react';
 
 const MAIN_ICONS = {
   coffee: Coffee,
@@ -47,12 +47,13 @@ export const MenuScreen = () => {
   return (
     <div className="menu-screen w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
       
-      {/* Kiosk Header */}
+      {/* Kiosk Header: Top-right corner options removed per request */}
       <KioskHeader
         title={currentMain.name}
         subtitle={currentSub.label}
         showBack={true}
-        showCart={true}
+        showCart={false}
+        showOrderType={false}
         onBackOverride={() => navigateTo('categories')}
       />
 
@@ -167,7 +168,7 @@ export const MenuScreen = () => {
       </div>
 
       {/* Kiosk Footer with persistent tray controls */}
-      <KioskFooter activeTab="menu" />
+      <KioskFooter />
 
     </div>
   );

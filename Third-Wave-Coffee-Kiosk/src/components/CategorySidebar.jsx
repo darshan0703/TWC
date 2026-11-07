@@ -44,14 +44,14 @@ export const CategorySidebar = ({
   onSelectSubcategory
 }) => {
   return (
-    <aside className="category-sidebar w-20 sm:w-24 shrink-0 bg-[#F4EFEA] border-r border-beige-muted/80 py-2.5 px-1.5 flex flex-col gap-2 overflow-y-auto select-none">
-      <div className="category-sidebar__header text-center px-1 pb-1 border-b border-beige-muted/60">
-        <span className="category-sidebar__header-text text-[9px] font-black tracking-wider uppercase text-taupe-warm font-sans block leading-tight">
+    <aside className="category-sidebar shrink-0 bg-[#F4EFEA] border-r border-beige-muted/80 overflow-y-auto select-none">
+      <div className="category-sidebar__header text-center">
+        <span className="category-sidebar__header-text font-black tracking-wider uppercase text-taupe-warm font-sans block leading-tight">
           Sections
         </span>
       </div>
 
-      <nav className="category-sidebar__nav flex flex-col gap-2">
+      <nav className="category-sidebar__nav flex flex-col">
         {subcategories.map((sub) => {
           const isActive = activeSubcategory === sub.id;
           const IconComponent = ICON_MAP[sub.icon] || Coffee;
@@ -61,28 +61,28 @@ export const CategorySidebar = ({
               key={sub.id}
               type="button"
               onClick={() => onSelectSubcategory(sub.id)}
-              className={`category-sidebar__btn w-full min-h-[60px] p-2 rounded-xl flex flex-col items-center justify-center text-center transition-all duration-200 active:scale-95 border ${
+              className={`category-sidebar__btn w-full rounded-xl flex flex-col items-center justify-center text-center transition-all duration-200 active:scale-95 border ${
                 isActive
                   ? 'category-sidebar__btn--active bg-white text-navy border-navy shadow-sm ring-1 ring-navy/20 font-black'
                   : 'category-sidebar__btn--inactive bg-white/60 hover:bg-white text-navy/70 border-beige-muted/60 hover:border-beige-dark font-medium'
               }`}
             >
               <div
-                className={`category-sidebar__icon-box w-7 h-7 rounded-lg flex items-center justify-center mb-1 transition-colors ${
+                className={`category-sidebar__icon-box rounded-lg flex items-center justify-center mb-1 transition-colors ${
                   isActive
                     ? 'bg-navy text-white shadow-sm'
                     : 'bg-beige-muted/50 text-navy'
                 }`}
               >
-                <IconComponent className="w-4 h-4" />
+                <IconComponent className="w-3.5 h-3.5" />
               </div>
 
-              <span className="category-sidebar__label text-[10px] leading-tight font-sans tracking-tight line-clamp-2">
+              <span className="category-sidebar__label leading-tight font-sans tracking-tight line-clamp-2">
                 {sub.label}
               </span>
 
               {isActive && (
-                <span className="category-sidebar__active-pill w-3 h-0.5 rounded-full bg-navy mt-1" />
+                <span className="category-sidebar__active-pill rounded-full bg-navy" />
               )}
             </button>
           );

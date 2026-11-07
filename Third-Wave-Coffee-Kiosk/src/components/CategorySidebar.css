@@ -1,17 +1,23 @@
 /* =========================================================================
    CategorySidebar.css — Vertical Subcategory Navigation Sidebar
-   Easily adjust width, height, padding, fonts, and colors below.
+   Compressed & slim width for 9:16 portrait kiosk.
    ========================================================================= */
 
+:root {
+  --sidebar-width: 4.25rem;         /* ~68px: slim and compressed sidebar */
+}
+
 .category-sidebar {
-  width: 5rem;                      /* 80px: easily adjust sidebar width */
+  width: var(--sidebar-width, 4.25rem) !important;
+  max-width: var(--sidebar-width, 4.25rem) !important;
+  min-width: var(--sidebar-width, 4.25rem) !important;
   flex-shrink: 0;
   background-color: #F4EFEA;
   border-right: 1px solid rgba(216, 207, 196, 0.8);
-  padding: 0.625rem 0.375rem;       /* 10px 6px */
+  padding: 0.5rem 0.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
   overflow-y: auto;
   user-select: none;
   box-sizing: border-box;
@@ -19,23 +25,25 @@
 
 @media (min-width: 640px) {
   .category-sidebar {
-    width: 6rem;                    /* 96px on larger screens */
+    width: var(--sidebar-width, 4.25rem) !important;
+    max-width: var(--sidebar-width, 4.25rem) !important;
+    min-width: var(--sidebar-width, 4.25rem) !important;
   }
 }
 
 .category-sidebar__header {
   text-align: center;
-  padding: 0 0.25rem 0.25rem;
+  padding: 0 0.15rem 0.2rem;
   border-bottom: 1px solid rgba(216, 207, 196, 0.6);
 }
 
 .category-sidebar__header-text {
-  font-size: 0.5625rem;             /* 9px */
+  font-size: 0.5rem;                /* 8px */
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #7A6F64;
-  font-family: "Plus Jakarta Sans", sans-serif;
+  font-family: inherit;
   display: block;
   line-height: 1.2;
 }
@@ -43,15 +51,15 @@
 .category-sidebar__nav {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;                      /* 8px spacing between subcategory buttons */
+  gap: 0.35rem;
 }
 
 /* Subcategory Button: easily adjust button height, padding and fonts here */
 .category-sidebar__btn {
   width: 100%;
-  min-height: 60px;                 /* Easily adjust button height */
-  padding: 0.5rem;                  /* 8px */
-  border-radius: 0.75rem;           /* 12px */
+  min-height: 52px;                 /* Compact button height */
+  padding: 0.35rem 0.15rem;         /* Slim padding */
+  border-radius: 0.625rem;          /* 10px */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -77,7 +85,7 @@
 }
 
 .category-sidebar__btn--inactive {
-  background-color: rgba(255, 255, 255, 0.6);
+  background-color: rgba(255, 255, 255, 0.65);
   color: rgba(28, 42, 57, 0.7);
   border-color: rgba(216, 207, 196, 0.6);
   font-weight: 500;
@@ -89,32 +97,32 @@
 }
 
 .category-sidebar__icon-box {
-  width: 1.75rem;                   /* 28px */
-  height: 1.75rem;
-  border-radius: 0.5rem;            /* 8px */
+  width: 1.5rem;                    /* 24px */
+  height: 1.5rem;
+  border-radius: 0.375rem;          /* 6px */
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.15rem;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .category-sidebar__label {
-  font-size: 0.625rem;              /* 10px */
+  font-size: 0.5625rem;             /* 9px */
   line-height: 1.15;
-  font-family: "Plus Jakarta Sans", sans-serif;
+  font-family: inherit;
   letter-spacing: -0.01em;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  padding: 0 1px;
 }
 
 .category-sidebar__active-pill {
-  width: 0.75rem;                   /* 12px */
+  width: 0.625rem;                  /* 10px */
   height: 2px;
   border-radius: 9999px;
   background-color: #1C2A39;
-  margin-top: 0.25rem;
+  margin-top: 0.15rem;
 }
-

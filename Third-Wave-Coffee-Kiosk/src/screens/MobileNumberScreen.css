@@ -1,5 +1,6 @@
 /* =========================================================================
    MobileNumberScreen.css — Customer Mobile Entry & Guest Kiosk Flow
+   Compact, responsive keypad & input sizing for 9:16 portrait kiosk.
    ========================================================================= */
 
 .mobile-number-screen {
@@ -7,95 +8,128 @@
   color: #1C2A39;
   font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   touch-action: manipulation;
+  overflow-x: hidden;
 }
 
-/* Phone input container styling */
-.mobile-number-screen__input-card {
-  position: relative;
-  display: flex;
-  align-items: center;
-  background-color: #FFFFFF;
-  border-radius: 1rem;
-  border: 2px solid #D8CFC4;
-  padding: 0.625rem 0.75rem;
-  box-shadow: 0 4px 12px rgba(28, 42, 57, 0.04);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+/* Constrain main content area to prevent horizontal cutoffs */
+.mobile-number-screen main {
+  max-width: 320px !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 0 0.5rem !important;
 }
 
-.mobile-number-screen__input-card:focus-within {
-  border-color: #1C2A39;
-  box-shadow: 0 0 0 3px rgba(28, 42, 57, 0.12), 0 6px 16px rgba(28, 42, 57, 0.06);
+/* Titles */
+.mobile-number-screen h2 {
+  font-size: 1.35rem !important;
+  line-height: 1.25 !important;
 }
 
-.mobile-number-screen__input-card--error {
-  border-color: #EF4444;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
-  animation: shake 0.4s ease-in-out forwards;
+.mobile-number-screen p.font-serif {
+  font-size: 0.8rem !important;
 }
 
-.mobile-number-screen__input-card--confirmed {
-  border-color: #1C2A39;
-  box-shadow: 0 0 0 3px rgba(28, 42, 57, 0.15);
+/* =========================================================================
+   Phone Input Display Box (Compact & Centered)
+   ========================================================================= */
+.mobile-number-screen .rounded-2xl.border-2 {
+  padding: 0.35rem 0.6rem !important;
+  border-radius: 0.75rem !important;
+  gap: 0.35rem !important;
 }
 
-/* Country code pill */
-.mobile-number-screen__country-pill {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  border-radius: 0.75rem;
-  background-color: #F0EAE1;
-  border: 1px solid rgba(216, 207, 196, 0.8);
-  flex-shrink: 0;
-  user-select: none;
+/* Country code pill (+91) */
+.mobile-number-screen .rounded-2xl.border-2 .bg-cream-200 {
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 0.5rem !important;
 }
 
-/* Formatted digits */
-.mobile-number-screen__digits {
-  font-family: "Plus Jakarta Sans", monospace, sans-serif;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  color: #1C2A39;
+.mobile-number-screen .rounded-2xl.border-2 .bg-cream-200 span[role="img"] {
+  font-size: 0.875rem !important;
 }
 
-/* Keypad container */
-.mobile-number-screen__keypad-wrapper {
-  width: 100%;
-  margin: 0 auto;
+.mobile-number-screen .rounded-2xl.border-2 .bg-cream-200 span.text-sm {
+  font-size: 0.75rem !important;
 }
 
-/* Primary Continue CTA */
-.mobile-number-screen__continue-btn {
-  width: 100%;
-  min-height: 52px;
-  border-radius: 0.75rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  -webkit-tap-highlight-color: transparent;
+/* Display digits */
+.mobile-number-screen .rounded-2xl.border-2 .flex-1 {
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
 }
 
-.mobile-number-screen__continue-btn:active:not(:disabled) {
-  transform: scale(0.985);
-  background-color: #131E2A;
+.mobile-number-screen .rounded-2xl.border-2 .flex-1 span {
+  font-size: 1.05rem !important;
+  letter-spacing: 0.08em !important;
+  line-height: 1.2 !important;
 }
 
-/* Skip / Guest button touch target */
-.mobile-number-screen__skip-btn {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.5rem;
-  -webkit-tap-highlight-color: transparent;
+/* 0/10 Counter */
+.mobile-number-screen .rounded-2xl.border-2 .px-2 span {
+  font-size: 9px !important;
+  padding: 0.15rem 0.4rem !important;
 }
 
-.mobile-number-screen__skip-btn:active {
-  background-color: rgba(28, 42, 57, 0.05);
+/* =========================================================================
+   Dial Pad / Touch Keypad (Compact & Proportional)
+   ========================================================================= */
+.mobile-number-screen .touch-keypad {
+  max-width: 285px !important;
+  margin: 0 auto !important;
+  gap: 0.35rem !important;
+}
+
+/* Numeric keys (1-9, 0) */
+.mobile-number-screen .touch-keypad__key,
+.mobile-number-screen button.touch-keypad__key {
+  height: 2.5rem !important;        /* ~40px compact height */
+  min-height: 2.5rem !important;
+  max-height: 2.5rem !important;
+  font-size: 1.15rem !important;     /* clear, compact digit font */
+  font-weight: 800 !important;
+  border-radius: 0.625rem !important;
+  padding: 0 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Action keys (Clear & Delete) */
+.mobile-number-screen .touch-keypad__action-key,
+.mobile-number-screen button.touch-keypad__action-key {
+  height: 2.5rem !important;
+  min-height: 2.5rem !important;
+  max-height: 2.5rem !important;
+  border-radius: 0.625rem !important;
+  padding: 0.15rem 0 !important;
+  gap: 0.1rem !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+.mobile-number-screen .touch-keypad__action-key svg {
+  width: 13px !important;
+  height: 13px !important;
+}
+
+.mobile-number-screen .touch-keypad__action-label,
+.mobile-number-screen .touch-keypad__action-key span {
+  font-size: 8.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  line-height: 1 !important;
+}
+
+/* =========================================================================
+   Action CTA Buttons (Continue / Guest Skip)
+   ========================================================================= */
+.mobile-number-screen button.text-sm {
+  padding-top: 0.65rem !important;
+  padding-bottom: 0.65rem !important;
+  font-size: 0.75rem !important;
+  border-radius: 0.625rem !important;
+}
+
+.mobile-number-screen button.text-xs {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+  font-size: 0.7rem !important;
 }
