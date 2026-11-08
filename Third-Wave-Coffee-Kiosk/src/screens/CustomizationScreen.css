@@ -5,8 +5,14 @@
 .customization-screen {
   background-color: #F8F5EE;
   color: #1C2A39;
-  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  font-family: 'Lato', "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   touch-action: manipulation;
+}
+
+/* 3D Milk Visualization Interactive Container Wrapper */
+.customization-screen__milk-vis-wrapper {
+  margin-bottom: 0.875rem;
+  width: 100%;
 }
 
 /* Product Hero Card */

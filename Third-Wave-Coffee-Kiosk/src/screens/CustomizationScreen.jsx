@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import './CustomizationScreen.css';
 import { KioskHeader } from '../components/KioskHeader';
+import { MilkVisualization, resolveMilkKey } from '../components/MilkVisualization';
 import { CUSTOMIZATION_OPTIONS, PASTRY_RECOMMENDATIONS, PRODUCTS } from '../data/products';
 import { useKiosk } from '../context/KioskContext';
 import { Plus, Minus, Check, Flame, Snowflake, ShoppingBag } from 'lucide-react';
@@ -14,13 +15,13 @@ export const CustomizationScreen = () => {
   // Customization state
   const [size, setSize] = useState('Regular');
   const [temperature, setTemperature] = useState(product.defaultTemperature || 'Hot');
-  const [milk, setMilk] = useState('Standard Dairy');
+  const [milk, setMilk] = useState('Regular');
+  const [milkPourTrigger, setMilkPourTrigger] = useState(0);
   const [sugar, setSugar] = useState('Regular Sugar');
   const [extraShot, setExtraShot] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
   // Derive available sizes: exact independent prices from photographs
-  // If product does not list Large, never display an invented large option
   const availableSizes = useMemo(() => {
     if (product.largePrice != null && product.largePrice > product.price) {
       const diff = product.largePrice - product.price;
@@ -60,7 +61,7 @@ export const CustomizationScreen = () => {
     const customizationsSummary = [
       `${size} (${size === 'Large' ? '350 ml' : '240 ml'})`,
       product.supportsTemperature ? temperature : null,
-      product.customizable ? milk : null,
+      product.customizable ? `${milk} Milk` : null,
       product.customizable ? sugar : null,
       extraShot ? '+1 Espresso Shot' : null
     ].filter(Boolean);
@@ -98,63 +99,86 @@ export const CustomizationScreen = () => {
       />
 
       {/* Main Scrollable Content */}
-      <main className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3.5">
+      <main className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3">
         
-        {/* Product Hero Header */}
-        <div className="relative rounded-2xl overflow-hidden bg-white border border-beige-muted/80 shadow-sm aspect-[16/9]">
-          <img
-            src={product.image}
-            alt={product.name}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-navy/85 via-navy/35 to-transparent" />
-
-          {/* Badges on image */}
-          <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-            {product.veg && (
-              <span className="w-5 h-5 rounded bg-white border border-emerald-700 flex items-center justify-center shadow">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-700"></span>
-              </span>
-            )}
-            {product.badge && (
-              <span className="px-2 py-0.5 rounded-md bg-white text-navy text-[10px] font-black uppercase tracking-wider shadow">
-                {product.badge}
-              </span>
-            )}
+        {/* Top Hero Section: Left = 3D Milk Glass, Right = Product Image & Details */}
+        <div className="grid grid-cols-2 gap-2.5 items-stretch min-h-[200px]">
+          
+          {/* Left: 3D Interactive Milk Pouring Glass Component */}
+          <div className="flex flex-col h-full">
+            <MilkVisualization
+              selectedMilk={milk}
+              size={size}
+              pourTrigger={milkPourTrigger}
+              temperature={temperature}
+            />
           </div>
 
-          <div className="absolute bottom-2.5 left-3 right-3 text-white">
-            <span className="text-[10px] uppercase font-bold tracking-widest text-beige-light block">
-              {product.category === 'specials' ? 'TWC Signature' : product.category === 'combos' ? 'Meal Combo' : 'House Roast'}
-            </span>
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 className="text-lg sm:text-xl font-black font-sans tracking-tight">
-                {product.name}
-              </h2>
-              <span className="text-base sm:text-lg font-black text-white font-sans shrink-0">
-                ₹{unitPrice}
-              </span>
+          {/* Right: Product Coffee Image & Information Card */}
+          <div className="relative rounded-2xl overflow-hidden bg-white border border-beige-muted/80 shadow-sm flex flex-col justify-between p-2.5 h-full">
+            <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-1.5 shadow-sm">
+              <img
+                src={product.image}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-navy/60 via-transparent to-transparent" />
+
+              {/* Badges on image */}
+              <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
+                {product.veg && (
+                  <span className="w-4 h-4 rounded bg-white/95 border border-emerald-700 flex items-center justify-center shadow-xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-700"></span>
+                  </span>
+                )}
+                {product.badge && (
+                  <span className="px-1.5 py-0.5 rounded bg-white/95 text-navy text-[8px] font-black uppercase tracking-wider shadow-xs">
+                    {product.badge}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col justify-between flex-1">
+              <div>
+                <span className="text-[8.5px] uppercase font-bold tracking-widest text-taupe-warm block">
+                  {product.category === 'specials' ? 'TWC Signature' : product.category === 'combos' ? 'Meal Combo' : 'House Roast'}
+                </span>
+                <h2 className="text-xs sm:text-sm font-black font-sans tracking-tight text-navy leading-snug line-clamp-2">
+                  {product.name}
+                </h2>
+              </div>
+
+              <div className="flex items-baseline justify-between pt-1.5 mt-1 border-t border-beige-muted/60">
+                <span className="text-[9.5px] text-taupe-warm font-semibold">Price</span>
+                <span className="text-sm sm:text-base font-black text-navy font-sans">
+                  ₹{unitPrice}
+                </span>
+              </div>
             </div>
           </div>
+
         </div>
 
         {/* Flavour Tasting Notes */}
-        <div className="p-2.5 rounded-xl bg-white border border-beige-muted/70 text-xs space-y-1">
-          <p className="text-taupe-warm leading-relaxed text-[11px]">
-            {product.description}
-          </p>
-          {product.notes && (
-            <div className="flex flex-wrap gap-1 pt-0.5">
-              {product.notes.map((n, i) => (
-                <span key={i} className="px-1.5 py-0.5 rounded bg-cream-200 text-[9px] font-bold text-navy/80">
-                  {n}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+        {product.description && (
+          <div className="p-2 rounded-xl bg-white border border-beige-muted/70 text-xs">
+            <p className="text-taupe-warm leading-relaxed text-[10.5px]">
+              {product.description}
+            </p>
+            {product.notes && (
+              <div className="flex flex-wrap gap-1 pt-1">
+                {product.notes.map((n, i) => (
+                  <span key={i} className="px-1.5 py-0.5 rounded bg-cream-200 text-[8.5px] font-bold text-navy/80">
+                    {n}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Customization Options Container */}
+        {/* Customization Options Container Just Below 3D Glass & Product Card */}
         <div className="bg-white rounded-2xl p-3 border border-beige-muted/80 shadow-sm space-y-3.5">
           
           {/* 1. Size Selection */}
@@ -174,7 +198,7 @@ export const CustomizationScreen = () => {
                     key={s.id}
                     type="button"
                     onClick={() => setSize(s.id)}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border-2 transition-all active:scale-[0.98] ${
+                    className={`flex items-center justify-between p-2.5 rounded-xl border-2 transition-all active:scale-[0.98] cursor-pointer ${
                       isSelected
                         ? 'bg-beige border-navy text-navy font-black shadow-sm'
                         : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold'
@@ -223,7 +247,7 @@ export const CustomizationScreen = () => {
                       key={temp.id}
                       type="button"
                       onClick={() => setTemperature(temp.id)}
-                      className={`flex items-center justify-between p-2.5 rounded-xl border-2 transition-all active:scale-[0.98] ${
+                      className={`flex items-center justify-between p-2.5 rounded-xl border-2 transition-all active:scale-[0.98] cursor-pointer ${
                         isSelected
                           ? 'bg-beige border-navy text-navy font-black shadow-sm'
                           : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold'
@@ -250,28 +274,31 @@ export const CustomizationScreen = () => {
             </div>
           )}
 
-          {/* 3. Milk Choice */}
+          {/* 3. Milk Choice (5 Variants with Interactive Visual Feedback) */}
           {product.customizable && (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-black uppercase tracking-wider text-navy">
                   3. Choice of Milk
                 </label>
-                <span className="text-[10px] text-taupe-warm font-medium">Dairy & plant</span>
+                <span className="text-[10px] text-taupe-warm font-medium">Select to pour in 3D</span>
               </div>
 
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                 {CUSTOMIZATION_OPTIONS.milks.map((m) => {
-                  const isSelected = milk === m.label;
+                  const isSelected = resolveMilkKey(milk) === m.id;
                   return (
                     <button
                       key={m.id}
                       type="button"
-                      onClick={() => setMilk(m.label)}
-                      className={`p-2 rounded-xl border-2 text-left transition-all active:scale-[0.98] ${
+                      onClick={() => {
+                        setMilk(m.id);
+                        setMilkPourTrigger(t => t + 1);
+                      }}
+                      className={`p-2 rounded-xl border-2 text-left transition-all active:scale-[0.98] cursor-pointer ${
                         isSelected
-                          ? 'bg-beige border-navy text-navy font-black shadow-sm'
-                          : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold'
+                          ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
+                          : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-0.5">
@@ -282,9 +309,14 @@ export const CustomizationScreen = () => {
                           {isSelected && <Check className="w-1.5 h-1.5" />}
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold text-navy block">
-                        {m.priceDiff === 0 ? 'Free' : `+₹${m.priceDiff}`}
-                      </span>
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-navy font-bold">
+                          {m.priceDiff === 0 ? 'Free' : `+₹${m.priceDiff}`}
+                        </span>
+                        <span className="text-[8.5px] text-taupe-warm font-medium truncate">
+                          {m.tag}
+                        </span>
+                      </div>
                     </button>
                   );
                 })}
@@ -298,7 +330,7 @@ export const CustomizationScreen = () => {
               <button
                 type="button"
                 onClick={() => setExtraShot(!extraShot)}
-                className={`w-full flex items-center justify-between p-2.5 rounded-xl border-2 transition-all active:scale-[0.98] ${
+                className={`w-full flex items-center justify-between p-2.5 rounded-xl border-2 transition-all active:scale-[0.98] cursor-pointer ${
                   extraShot
                     ? 'bg-beige border-navy text-navy font-black shadow-sm'
                     : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold'
@@ -338,7 +370,7 @@ export const CustomizationScreen = () => {
                       key={sug.id}
                       type="button"
                       onClick={() => setSugar(sug.label)}
-                      className={`p-2 rounded-xl border-2 text-center transition-all ${
+                      className={`p-2 rounded-xl border-2 text-center transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-beige border-navy text-navy font-black shadow-sm'
                           : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold'
@@ -364,7 +396,7 @@ export const CustomizationScreen = () => {
                 type="button"
                 onClick={() => setQuantity(q => Math.max(1, q - 1))}
                 disabled={quantity <= 1}
-                className="w-8 h-8 rounded-lg bg-white text-navy flex items-center justify-center hover:bg-cream-200 disabled:opacity-40 transition-all active:scale-95 shadow-sm"
+                className="w-8 h-8 rounded-lg bg-white text-navy flex items-center justify-center hover:bg-cream-200 disabled:opacity-40 transition-all active:scale-95 shadow-sm cursor-pointer"
               >
                 <Minus className="w-3.5 h-3.5" />
               </button>
@@ -376,7 +408,7 @@ export const CustomizationScreen = () => {
               <button
                 type="button"
                 onClick={() => setQuantity(q => q + 1)}
-                className="w-8 h-8 rounded-lg bg-white text-navy flex items-center justify-center hover:bg-cream-200 transition-all active:scale-95 shadow-sm"
+                className="w-8 h-8 rounded-lg bg-white text-navy flex items-center justify-center hover:bg-cream-200 transition-all active:scale-95 shadow-sm cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
@@ -417,7 +449,7 @@ export const CustomizationScreen = () => {
                   type="button"
                   onClick={() => addDirectToCart(pastry)}
                   title="Add pastry to tray"
-                  className="w-7 h-7 rounded-lg bg-cream-200 hover:bg-navy hover:text-white text-navy flex items-center justify-center transition-colors shrink-0"
+                  className="w-7 h-7 rounded-lg bg-cream-200 hover:bg-navy hover:text-white text-navy flex items-center justify-center transition-colors shrink-0 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -433,7 +465,7 @@ export const CustomizationScreen = () => {
         <button
           type="button"
           onClick={handleAddToCart}
-          className="w-full py-3.5 rounded-xl bg-navy hover:bg-navy-charcoal active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-kiosk border border-navy transition-all"
+          className="w-full py-3.5 rounded-xl bg-navy hover:bg-navy-charcoal active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-kiosk border border-navy transition-all cursor-pointer"
         >
           <ShoppingBag className="w-4 h-4 text-white" />
           <span>ADD TO CART • ₹{totalPrice}</span>
@@ -442,7 +474,7 @@ export const CustomizationScreen = () => {
         <button
           type="button"
           onClick={() => navigateTo('menu')}
-          className="w-full py-1.5 text-[11px] font-bold uppercase tracking-wider text-taupe-warm hover:text-navy text-center transition-colors"
+          className="w-full py-1.5 text-[11px] font-bold uppercase tracking-wider text-taupe-warm hover:text-navy text-center transition-colors cursor-pointer"
         >
           BACK TO MENU
         </button>
