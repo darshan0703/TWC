@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import * as THREE from 'three';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import './MilkVisualization.css';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Sparkles, Coffee } from 'lucide-react';
 
 /**
  * 5 Milk Variants configuration matching Third Wave Coffee specifications
@@ -11,23 +10,19 @@ export const MILK_VARIANTS = {
     id: 'Regular',
     label: 'Regular Milk',
     tag: 'Fresh Dairy',
-    desc: 'Natural white',
+    desc: 'Natural fresh white',
     colorHex: '#FAF8F5',
-    colorNum: 0xFAF8F5,
-    roughness: 0.26,
-    opacity: 0.98,
-    translucent: false
+    tintFilter: 'none',
+    blendColor: '#c49a6c'
   },
   Skimmed: {
     id: 'Skimmed',
     label: 'Skimmed Milk',
     tag: 'Light & Lean',
     desc: 'Slightly translucent white',
-    colorHex: '#E2EBF2',
-    colorNum: 0xE2EBF2,
-    roughness: 0.18,
-    opacity: 0.82,
-    translucent: true
+    colorHex: '#EAF0F6',
+    tintFilter: 'brightness(1.05) contrast(0.95) saturate(0.85)',
+    blendColor: '#b89066'
   },
   Soy: {
     id: 'Soy',
@@ -35,10 +30,8 @@ export const MILK_VARIANTS = {
     tag: 'Plant Protein',
     desc: 'Creamy warm white',
     colorHex: '#F5EED8',
-    colorNum: 0xF5EED8,
-    roughness: 0.28,
-    opacity: 0.98,
-    translucent: false
+    tintFilter: 'sepia(0.08) hue-rotate(-5deg) saturate(1.05)',
+    blendColor: '#c09565'
   },
   Almond: {
     id: 'Almond',
@@ -46,21 +39,17 @@ export const MILK_VARIANTS = {
     tag: 'Nutty & Light',
     desc: 'Subtle warm beige',
     colorHex: '#ECE0CD',
-    colorNum: 0xECE0CD,
-    roughness: 0.25,
-    opacity: 0.94,
-    translucent: false
+    tintFilter: 'sepia(0.18) hue-rotate(5deg) saturate(1.1)',
+    blendColor: '#b08354'
   },
   Oat: {
     id: 'Oat',
     label: 'Oat Milk',
     tag: 'Barista Blend',
-    desc: 'Soft creamy ivory',
+    desc: 'Soft velvety creamy ivory',
     colorHex: '#F5EBD7',
-    colorNum: 0xF5EBD7,
-    roughness: 0.30,
-    opacity: 0.97,
-    translucent: false
+    tintFilter: 'sepia(0.12) hue-rotate(10deg) saturate(1.12)',
+    blendColor: '#bd8f5c'
   }
 };
 
@@ -78,558 +67,194 @@ export const resolveMilkKey = (val) => {
 };
 
 /**
+ * Step configuration with video start/end boundaries and high-res studio posters
+ * 4-Step Flow: Size (0%) -> Strength (35%) -> Milk (75%) -> Sweetness / Ready (92%)
+ */
+const STEP_CONFIG = {
+  size: {
+    start: 0.0,
+    end: 1.8,
+    hold: 1.6,
+    poster: '/craft/craft_step_1.jpg',
+    label: 'Empty Glass Cup',
+    fillPct: 0
+  },
+  strength: {
+    start: 1.8,
+    end: 3.8,
+    hold: 3.7,
+    poster: '/craft/craft_step_2.jpg',
+    label: 'Espresso Crema',
+    fillPct: 35
+  },
+  milk: {
+    start: 3.8,
+    end: 5.8,
+    hold: 5.7,
+    poster: '/craft/craft_step_3.jpg',
+    label: 'Steamed Milk',
+    fillPct: 75
+  },
+  sweetness: {
+    start: 5.8,
+    end: 9.8,
+    hold: 9.8,
+    poster: '/craft/craft_step_6.jpg',
+    label: 'Finished Latte Art',
+    fillPct: 92
+  },
+  ready: {
+    start: 9.2,
+    end: 10.0,
+    hold: 9.8,
+    poster: '/craft/craft_step_6.jpg',
+    label: 'Ready to Serve',
+    fillPct: 92
+  }
+};
+
+/**
  * MilkVisualization Component
  *
- * Dedicated 3D WebGL scene showcasing a transparent glass, barista hand pouring from a milk pitcher,
- * and realistic milk liquid simulation customized for the active milk type.
- *
- * @param {string} selectedMilk - 'Regular' | 'Skimmed' | 'Soy' | 'Almond' | 'Oat'
- * @param {string} size - 'Regular' | 'Large'
- * @param {function} onAnimationComplete - optional callback when pouring finishes
+ * Layer 1: Large, extended visual background area with live coffee preparation.
+ * Layer 2: Floating AI Cashier card slot rendered over its lower portion via children.
  */
-// Error Boundary to prevent any WebGL/GPU crash from taking down the customization screen
-class MilkErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  componentDidCatch(error, info) {
-    console.warn('MilkVisualization WebGL error caught gracefully:', error, info);
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="milk-vis-container flex items-center justify-center p-3 text-center">
-          <span className="text-[11px] font-bold text-navy">Interactive 3D Preview (Offline Mode)</span>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-const MilkVisualizationInner = ({
+export const MilkVisualization = ({
+  drinkStyle = 'cappuccino', // 'cappuccino' | 'cold'
+  stepKey = 'size', // 'size' | 'strength' | 'milk' | 'sweetness' | 'ready'
+  currentStep = 1,
+  isReady = false,
   selectedMilk = 'Regular',
   size = 'Regular',
+  strength = 'Single Shot',
+  sweetness = 'Regular Sugar',
   pourTrigger = 0,
-  onAnimationComplete
+  productImage = null,
+  productName = 'Cappuccino',
+  unitPrice = null,
+  onAnimationDone,
+  className = '',
+  children
 }) => {
-  const containerRef = useRef(null);
-  const canvasRef = useRef(null);
-
+  const isCold = drinkStyle === 'cold';
+  const isLarge = size === 'Large';
   const activeMilkKey = resolveMilkKey(selectedMilk);
   const currentMilk = MILK_VARIANTS[activeMilkKey] || MILK_VARIANTS.Regular;
 
-  const [isPouring, setIsPouring] = useState(false);
-  const [hasPoured, setHasPoured] = useState(false);
-  const [webGlSupported, setWebGlSupported] = useState(true);
+  // Resolve active step key across 4 steps + ready
+  const activeKey = useMemo(() => {
+    if (stepKey) return stepKey;
+    if (isReady) return 'ready';
+    const keyMap = ['size', 'strength', 'milk', 'sweetness', 'ready'];
+    return keyMap[currentStep - 1] || 'size';
+  }, [isReady, stepKey, currentStep]);
 
-  // Track initial mount so glass begins empty without immediate auto-pour
-  const isFirstMountRef = useRef(true);
+  const config = STEP_CONFIG[activeKey] || STEP_CONFIG.size;
 
-  // References to 3D scene objects
-  const sceneRef = useRef(null);
-  const rendererRef = useRef(null);
-  const animFrameRef = useRef(null);
-  const objectsRef = useRef({
-    glassGroup: null,
-    liquidMesh: null,
-    meniscusMesh: null,
-    liquidMaterial: null,
-    pitcherGroup: null,
-    streamMesh: null,
-    rippleMesh: null,
-    camera: null
-  });
+  // High-resolution studio poster: step 4 (sweetness) & ready both display the finished 92% cup
+  const activePoster = useMemo(() => {
+    if (activeKey === 'ready' || activeKey === 'sweetness') return '/craft/craft_step_6.jpg';
+    if (activeKey === 'milk') return '/craft/craft_step_3.jpg';
+    if (activeKey === 'strength') return '/craft/craft_step_2.jpg';
+    return '/craft/craft_step_1.jpg';
+  }, [activeKey]);
 
-  // Animation timeline control
-  const animStateRef = useRef({
-    startTime: 0,
-    duration: 2600, // 2.6 seconds full pour cycle
-    active: false,
-    milkKey: activeMilkKey
-  });
+  const videoRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+  const [tiltAngle, setTiltAngle] = useState(0);
 
-  // Touch drag rotation
-  const pointerRef = useRef({
-    isDown: false,
-    startX: 0,
-    targetRotationY: 0,
-    currentRotationY: 0
-  });
+  // Play video segment for active step
+  const playStepSegment = useCallback((key) => {
+    const video = videoRef.current;
+    if (!video || isCold || videoError) return;
 
-  // Trigger pour animation
-  const triggerPourAnimation = useCallback((milkKey) => {
-    const objs = objectsRef.current;
-    if (!objs.pitcherGroup || !objs.liquidMesh) return;
+    const conf = STEP_CONFIG[key] || STEP_CONFIG.size;
+    video.currentTime = conf.start;
 
-    const variant = MILK_VARIANTS[milkKey] || MILK_VARIANTS.Regular;
-
-    // Update liquid material to the chosen milk
-    if (objs.liquidMaterial) {
-      objs.liquidMaterial.color.setHex(variant.colorNum);
-      objs.liquidMaterial.opacity = variant.opacity;
-      objs.liquidMaterial.roughness = variant.roughness;
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => setIsPlaying(true))
+        .catch((err) => {
+          console.warn('Video auto-play handled:', err);
+          setIsPlaying(false);
+        });
     }
+  }, [isCold, videoError]);
 
-    // Reset liquid to completely empty before starting pour
-    objs.liquidMesh.visible = true;
-    objs.liquidMesh.scale.set(1, 0.001, 1);
-    if (objs.meniscusMesh) {
-      objs.meniscusMesh.visible = false;
-      objs.meniscusMesh.position.y = -0.84;
-    }
-
-    setIsPouring(true);
-    setHasPoured(true);
-    animStateRef.current = {
-      startTime: performance.now(),
-      duration: 2600,
-      active: true,
-      milkKey
-    };
-  }, []);
-
-  // Initialize Three.js 3D Scene
+  // Handle time update boundaries
   useEffect(() => {
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!container || !canvas) return;
+    const video = videoRef.current;
+    if (!video || isCold) return;
 
-    const width = container.clientWidth || 240;
-    const height = container.clientHeight || 220;
+    const conf = STEP_CONFIG[activeKey] || STEP_CONFIG.size;
 
-    // 1. Scene
-    const scene = new THREE.Scene();
-    sceneRef.current = scene;
-
-    // 2. Camera
-    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
-    camera.position.set(0, 0.4, 4.2);
-    camera.lookAt(0, -0.1, 0);
-    objectsRef.current.camera = camera;
-
-    // 3. Safe WebGL Renderer initialization
-    let renderer;
-    try {
-      renderer = new THREE.WebGLRenderer({
-        canvas,
-        alpha: true,
-        antialias: true,
-        powerPreference: 'high-performance'
-      });
-      renderer.setSize(width, height);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.15;
-      rendererRef.current = renderer;
-    } catch (err) {
-      console.warn('WebGL is not available on this device, using 2D fallback:', err);
-      setWebGlSupported(false);
-      return;
-    }
-
-    // 4. Lighting Rig
-    const ambientLight = new THREE.AmbientLight(0xfff7ed, 1.1);
-    scene.add(ambientLight);
-
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
-    keyLight.position.set(2.5, 4, 3.5);
-    scene.add(keyLight);
-
-    const rimLight = new THREE.DirectionalLight(0xe2ecfb, 0.9);
-    rimLight.position.set(-3, 2, -2.5);
-    scene.add(rimLight);
-
-    const softFill = new THREE.PointLight(0xffedd5, 0.7, 8);
-    softFill.position.set(0, -1, 2);
-    scene.add(softFill);
-
-    // 5. Build Transparent Glass Model (Double-walled for physical refraction)
-    const glassGroup = new THREE.Group();
-    scene.add(glassGroup);
-    objectsRef.current.glassGroup = glassGroup;
-
-    // Glass Material
-    const glassMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.32,
-      roughness: 0.05,
-      metalness: 0.02,
-      transmission: 0.88,
-      ior: 1.5,
-      thickness: 0.4,
-      specularIntensity: 1.0,
-      specularColor: 0xffffff,
-      side: THREE.DoubleSide,
-      depthWrite: false
-    });
-
-    // Outer wall
-    const outerWallGeo = new THREE.CylinderGeometry(0.78, 0.60, 1.85, 48, 1, true);
-    const outerWallMesh = new THREE.Mesh(outerWallGeo, glassMaterial);
-    glassGroup.add(outerWallMesh);
-
-    // Inner wall
-    const innerWallGeo = new THREE.CylinderGeometry(0.74, 0.56, 1.80, 48, 1, true);
-    const innerWallMesh = new THREE.Mesh(innerWallGeo, glassMaterial);
-    glassGroup.add(innerWallMesh);
-
-    // Thick glass base
-    const baseGeo = new THREE.CylinderGeometry(0.60, 0.58, 0.16, 48);
-    const baseMesh = new THREE.Mesh(baseGeo, glassMaterial);
-    baseMesh.position.y = -0.92;
-    glassGroup.add(baseMesh);
-
-    // Polished glass lip rim
-    const rimGeo = new THREE.TorusGeometry(0.76, 0.022, 16, 48);
-    rimGeo.rotateX(Math.PI / 2);
-    const rimMesh = new THREE.Mesh(rimGeo, glassMaterial);
-    rimMesh.position.y = 0.925;
-    glassGroup.add(rimMesh);
-
-    // Realistic vertical reflection sheen on glass surface
-    const sheenGeo = new THREE.CylinderGeometry(0.785, 0.605, 1.75, 12, 1, true, 0.2, 0.35);
-    const sheenMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.15,
-      side: THREE.DoubleSide,
-      depthWrite: false
-    });
-    const sheenMesh = new THREE.Mesh(sheenGeo, sheenMat);
-    glassGroup.add(sheenMesh);
-
-    // 6. Build Liquid Column (Milk inside glass)
-    const liquidMaterial = new THREE.MeshStandardMaterial({
-      color: currentMilk.colorNum,
-      roughness: currentMilk.roughness,
-      metalness: 0.02,
-      transparent: true,
-      opacity: currentMilk.opacity,
-      depthWrite: true
-    });
-    objectsRef.current.liquidMaterial = liquidMaterial;
-
-    // Liquid cylinder (pivot at bottom so scale.y fills upwards)
-    const liquidHeight = 1.55;
-    const liquidGeo = new THREE.CylinderGeometry(0.73, 0.55, liquidHeight, 36);
-    liquidGeo.translate(0, liquidHeight / 2, 0); // shift pivot to bottom
-    const liquidMesh = new THREE.Mesh(liquidGeo, liquidMaterial);
-    liquidMesh.position.y = -0.84;
-    liquidMesh.scale.set(1, 0.0001, 1); // starts empty
-    liquidMesh.visible = false; // strictly hidden until a milk option is clicked!
-    glassGroup.add(liquidMesh);
-    objectsRef.current.liquidMesh = liquidMesh;
-
-    // Liquid top surface (meniscus disc)
-    const meniscusGeo = new THREE.CircleGeometry(0.73, 36);
-    meniscusGeo.rotateX(-Math.PI / 2);
-    const meniscusMesh = new THREE.Mesh(meniscusGeo, liquidMaterial);
-    meniscusMesh.position.y = -0.84;
-    meniscusMesh.visible = false;
-    glassGroup.add(meniscusMesh);
-    objectsRef.current.meniscusMesh = meniscusMesh;
-
-    // 7. Build Barista Hand & Milk Pitcher (Jug)
-    const pitcherGroup = new THREE.Group();
-    scene.add(pitcherGroup);
-    objectsRef.current.pitcherGroup = pitcherGroup;
-
-    // Stainless steel pitcher material
-    const steelMaterial = new THREE.MeshStandardMaterial({
-      color: 0xdde4ec,
-      metalness: 0.92,
-      roughness: 0.2,
-      envMapIntensity: 1.2
-    });
-
-    // Pitcher body (tapered espresso steaming pitcher)
-    const pitcherBodyGeo = new THREE.CylinderGeometry(0.38, 0.46, 0.95, 32);
-    const pitcherBody = new THREE.Mesh(pitcherBodyGeo, steelMaterial);
-    pitcherGroup.add(pitcherBody);
-
-    // Pitcher pointed spout
-    const spoutGeo = new THREE.ConeGeometry(0.16, 0.28, 16);
-    spoutGeo.rotateZ(Math.PI / 3);
-    const spoutMesh = new THREE.Mesh(spoutGeo, steelMaterial);
-    spoutMesh.position.set(-0.34, 0.42, 0);
-    pitcherGroup.add(spoutMesh);
-
-    // Pitcher curved handle
-    const handleGeo = new THREE.TorusGeometry(0.24, 0.04, 12, 24, Math.PI * 0.95);
-    handleGeo.rotateZ(-Math.PI / 4);
-    const handleMesh = new THREE.Mesh(handleGeo, steelMaterial);
-    handleMesh.position.set(0.44, 0.02, 0);
-    pitcherGroup.add(handleMesh);
-
-    // Barista Hand (Warm skin tone, gripping the pitcher handle)
-    const handGroup = new THREE.Group();
-    pitcherGroup.add(handGroup);
-
-    const skinMaterial = new THREE.MeshStandardMaterial({
-      color: 0xd8a379,
-      roughness: 0.65,
-      metalness: 0.05
-    });
-
-    // Palm
-    const palmGeo = new THREE.BoxGeometry(0.28, 0.4, 0.22);
-    const palmMesh = new THREE.Mesh(palmGeo, skinMaterial);
-    palmMesh.position.set(0.62, 0.05, 0);
-    palmMesh.rotation.z = -0.25;
-    handGroup.add(palmMesh);
-
-    // Thumb across top of handle
-    const thumbGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.22, 12);
-    thumbGeo.rotateZ(Math.PI / 2.6);
-    const thumbMesh = new THREE.Mesh(thumbGeo, skinMaterial);
-    thumbMesh.position.set(0.46, 0.24, 0.06);
-    handGroup.add(thumbMesh);
-
-    // Fingers curled around the grip
-    for (let f = 0; f < 3; f++) {
-      const fingerGeo = new THREE.CylinderGeometry(0.038, 0.038, 0.24, 12);
-      fingerGeo.rotateZ(Math.PI / 2.2);
-      const fingerMesh = new THREE.Mesh(fingerGeo, skinMaterial);
-      fingerMesh.position.set(0.54, 0.12 - f * 0.1, -0.02);
-      handGroup.add(fingerMesh);
-    }
-
-    // Forearm extending out of scene
-    const armGeo = new THREE.CylinderGeometry(0.13, 0.16, 0.85, 16);
-    armGeo.rotateZ(-Math.PI / 3);
-    const armMesh = new THREE.Mesh(armGeo, skinMaterial);
-    armMesh.position.set(1.05, 0.35, 0);
-    handGroup.add(armMesh);
-
-    // Pitcher initial hidden position (off-screen top-right)
-    pitcherGroup.position.set(3.2, 2.8, 0);
-    pitcherGroup.rotation.z = 0;
-    pitcherGroup.visible = false;
-
-    // 8. Milk Pouring Stream
-    const streamGeo = new THREE.CylinderGeometry(0.04, 0.055, 1.8, 16);
-    streamGeo.translate(0, -0.9, 0);
-    const streamMaterial = new THREE.MeshStandardMaterial({
-      color: currentMilk.colorNum,
-      roughness: 0.2,
-      transparent: true,
-      opacity: 0
-    });
-    const streamMesh = new THREE.Mesh(streamGeo, streamMaterial);
-    scene.add(streamMesh);
-    streamMesh.visible = false;
-    objectsRef.current.streamMesh = streamMesh;
-
-    // Liquid surface impact ripple ring
-    const rippleGeo = new THREE.RingGeometry(0.04, 0.14, 24);
-    rippleGeo.rotateX(-Math.PI / 2);
-    const rippleMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0,
-      side: THREE.DoubleSide
-    });
-    const rippleMesh = new THREE.Mesh(rippleGeo, rippleMat);
-    scene.add(rippleMesh);
-    rippleMesh.visible = false;
-    objectsRef.current.rippleMesh = rippleMesh;
-
-    // Gentle base shadow
-    const shadowGeo = new THREE.CircleGeometry(0.68, 32);
-    shadowGeo.rotateX(-Math.PI / 2);
-    const shadowMat = new THREE.MeshBasicMaterial({
-      color: 0x4a3b32,
-      transparent: true,
-      opacity: 0.12
-    });
-    const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
-    shadowMesh.position.y = -1.02;
-    scene.add(shadowMesh);
-
-    // Animation Loop
-    let lastTime = performance.now();
-
-    const animate = (now) => {
-      animFrameRef.current = requestAnimationFrame(animate);
-
-      const delta = (now - lastTime) / 1000;
-      lastTime = now;
-
-      // Handle gentle touch/pointer rotation
-      const ptr = pointerRef.current;
-      ptr.currentRotationY += (ptr.targetRotationY - ptr.currentRotationY) * 0.1;
-      glassGroup.rotation.y = ptr.currentRotationY;
-
-      // Animate Milk Pouring Timeline
-      const anim = animStateRef.current;
-      if (anim.active) {
-        const animVariant = MILK_VARIANTS[anim.milkKey] || MILK_VARIANTS.Regular;
-        const elapsed = now - anim.startTime;
-        const progress = Math.min(elapsed / anim.duration, 1.0);
-
-        // Phase 1: Hand & Pitcher Enter and Tilt (0.00 -> 0.25)
-        if (progress < 0.25) {
-          const p = progress / 0.25;
-          const ease = p * p * (3 - 2 * p); // Smooth easeInOut
-
-          pitcherGroup.visible = true;
-          // Interpolate position from offscreen (3.2, 2.8) to pouring pose (1.15, 1.35)
-          pitcherGroup.position.x = 3.2 + (1.15 - 3.2) * ease;
-          pitcherGroup.position.y = 2.8 + (1.35 - 2.8) * ease;
-          pitcherGroup.position.z = 0;
-          // Tilt pitcher from 0 to -65 degrees (spout aims into glass)
-          pitcherGroup.rotation.z = -(Math.PI * 0.36) * ease;
-
-          streamMesh.visible = false;
-          rippleMesh.visible = false;
-        }
-        // Phase 2: Pouring liquid & filling the glass (0.25 -> 0.75)
-        else if (progress < 0.75) {
-          const p = (progress - 0.25) / 0.50;
-          const easeFill = p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p;
-
-          pitcherGroup.visible = true;
-          pitcherGroup.position.set(1.15, 1.35 + Math.sin(now * 0.006) * 0.015, 0);
-          pitcherGroup.rotation.z = -(Math.PI * 0.36) + Math.sin(now * 0.008) * 0.02;
-
-          // Stream active
-          streamMesh.visible = true;
-          streamMaterial.opacity = 0.95;
-          streamMaterial.color.setHex(animVariant.colorNum);
-          streamMesh.position.set(0.05, 1.15, 0);
-
-          // Liquid level rising smoothly
-          const targetFill = 0.82; // Fill up to 82% of glass
-          const currentFill = Math.max(0.01, easeFill * targetFill);
-          liquidMesh.scale.y = currentFill;
-
-          // Meniscus surface position follows the liquid height
-          meniscusMesh.visible = true;
-          const topY = -0.84 + currentFill * liquidHeight;
-          meniscusMesh.position.y = topY;
-          meniscusMesh.scale.setScalar(0.75 + (currentFill * 0.25)); // slight taper expansion
-
-          // Meniscus ripples
-          rippleMesh.visible = true;
-          rippleMesh.position.set(0.05, topY + 0.005, 0);
-          const ripplePhase = (now * 0.006) % 1;
-          rippleMesh.scale.setScalar(0.8 + ripplePhase * 0.8);
-          rippleMat.opacity = (1 - ripplePhase) * 0.45;
-        }
-        // Phase 3: Pitcher untilts & Hand Exits Scene (0.75 -> 1.00)
-        else {
-          const p = (progress - 0.75) / 0.25;
-          const ease = p * p * (3 - 2 * p);
-
-          // Stream cuts off immediately
-          streamMesh.visible = false;
-          rippleMesh.visible = false;
-
-          // Pitcher untilts and moves off-screen
-          pitcherGroup.position.x = 1.15 + (3.4 - 1.15) * ease;
-          pitcherGroup.position.y = 1.35 + (3.0 - 1.35) * ease;
-          pitcherGroup.rotation.z = -(Math.PI * 0.36) * (1 - ease);
-
-          // Liquid remains filled at 82%
-          liquidMesh.scale.y = 0.82;
-          meniscusMesh.visible = true;
-          meniscusMesh.position.y = -0.84 + 0.82 * liquidHeight;
-
-          if (progress >= 1.0) {
-            anim.active = false;
-            pitcherGroup.visible = false;
-            setIsPouring(false);
-            setHasPoured(true);
-            if (onAnimationComplete) onAnimationComplete(anim.milkKey);
-          }
+    const handleTimeUpdate = () => {
+      if (video.currentTime >= conf.end) {
+        if (activeKey === 'size') {
+          // Loop empty glass gently
+          video.currentTime = conf.start;
+        } else if (activeKey === 'ready') {
+          video.pause();
+          video.currentTime = conf.hold;
+          setIsPlaying(false);
+          if (onAnimationDone) onAnimationDone('ready');
+        } else {
+          video.pause();
+          video.currentTime = conf.hold;
+          setIsPlaying(false);
+          if (onAnimationDone) onAnimationDone(activeKey);
         }
       }
-
-      renderer.render(scene, camera);
     };
 
-    animFrameRef.current = requestAnimationFrame(animate);
-
-    // Responsive Canvas Resize Observer
-    const handleResize = () => {
-      if (!container || !renderer) return;
-      const newW = container.clientWidth || 240;
-      const newH = container.clientHeight || 220;
-      camera.aspect = newW / newH;
-      camera.updateProjectionMatrix();
-      renderer.setSize(newW, newH);
-    };
-
-    const resizeObserver = new ResizeObserver(handleResize);
-    resizeObserver.observe(container);
-
-    // Cleanup resources on unmount
+    video.addEventListener('timeupdate', handleTimeUpdate);
     return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      if (resizeObserver) resizeObserver.disconnect();
-
-      // Dispose Geometries & Materials safely
-      [outerWallGeo, innerWallGeo, baseGeo, rimGeo, sheenGeo, liquidGeo, meniscusGeo,
-       pitcherBodyGeo, spoutGeo, handleGeo, palmGeo, thumbGeo, armGeo, streamGeo, rippleGeo, shadowGeo]
-        .forEach(g => { if (g && typeof g.dispose === 'function') g.dispose(); });
-
-      [glassMaterial, sheenMat, liquidMaterial, steelMaterial, skinMaterial, streamMaterial, rippleMat, shadowMat]
-        .forEach(m => { if (m && typeof m.dispose === 'function') m.dispose(); });
-
-      if (renderer && typeof renderer.dispose === 'function') renderer.dispose();
+      video.removeEventListener('timeupdate', handleTimeUpdate);
     };
-  }, []);
+  }, [activeKey, isCold, onAnimationDone]);
 
-  // Only trigger pouring animation when customer clicks a milk option (pourTrigger > 0)
-  const lastHandledTriggerRef = useRef(0);
-
+  // Trigger segment when step or pourTrigger changes
   useEffect(() => {
-    if (pourTrigger > 0 && pourTrigger !== lastHandledTriggerRef.current) {
-      lastHandledTriggerRef.current = pourTrigger;
-      if (objectsRef.current.liquidMesh) {
-        triggerPourAnimation(activeMilkKey);
-      }
+    if (!isCold) {
+      playStepSegment(activeKey);
     }
-  }, [activeMilkKey, pourTrigger, triggerPourAnimation]);
+  }, [activeKey, pourTrigger, isCold, playStepSegment]);
 
-  // Adjust glass height slightly when size prop toggles between Regular and Large
-  useEffect(() => {
-    const glass = objectsRef.current.glassGroup;
-    if (glass) {
-      const targetScaleY = size === 'Large' ? 1.08 : 1.0;
-      glass.scale.set(1, targetScaleY, 1);
+  // Manual replay button
+  const handleReplay = (e) => {
+    e.stopPropagation();
+    if (!isCold) {
+      playStepSegment(activeKey);
     }
-  }, [size]);
+  };
 
-  // Touch / Pointer drag handlers for 3D orbital inspection
+  // Touch / pointer drag for slight 3D perspective tilt
+  const dragStartRef = useRef(0);
+  const isDraggingRef = useRef(false);
+
   const handlePointerDown = (e) => {
-    pointerRef.current.isDown = true;
-    pointerRef.current.startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+    isDraggingRef.current = true;
+    dragStartRef.current = e.clientX || (e.touches && e.touches[0].clientX) || 0;
   };
 
   const handlePointerMove = (e) => {
-    if (!pointerRef.current.isDown) return;
+    if (!isDraggingRef.current) return;
     const clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-    const deltaX = clientX - pointerRef.current.startX;
-    pointerRef.current.startX = clientX;
-    // Rotate glass within natural viewing angle
-    pointerRef.current.targetRotationY = Math.max(-0.9, Math.min(0.9, pointerRef.current.targetRotationY + deltaX * 0.015));
+    const delta = clientX - dragStartRef.current;
+    setTiltAngle(Math.max(-8, Math.min(8, delta * 0.1)));
   };
 
   const handlePointerUp = () => {
-    pointerRef.current.isDown = false;
+    isDraggingRef.current = false;
+    setTiltAngle(0);
   };
 
   return (
     <div
-      ref={containerRef}
-      className="milk-vis-container"
+      className={`milk-vis-stage ${isCold ? 'milk-vis-stage--cold' : 'milk-vis-stage--hot'} ${className}`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -637,68 +262,179 @@ const MilkVisualizationInner = ({
       onTouchStart={handlePointerDown}
       onTouchMove={handlePointerMove}
       onTouchEnd={handlePointerUp}
-      title="Interactive 3D Milk Visualization • Drag horizontally to rotate"
+      style={{
+        transform: `perspective(600px) rotateY(${tiltAngle}deg)`,
+        transition: isDraggingRef.current ? 'none' : 'transform 0.4s ease-out'
+      }}
     >
-      {webGlSupported ? (
-        <canvas ref={canvasRef} className="milk-vis-canvas" />
-      ) : (
-        /* Graceful WebGL Fallback */
-        <div className="milk-vis-fallback">
-          <div className="milk-vis-fallback__glass">
-            <div
-              className="milk-vis-fallback__liquid"
-              style={{
-                height: hasPoured || isPouring ? '80%' : '0%',
-                backgroundColor: currentMilk.colorHex
-              }}
-            />
+      {/* =========================================================================
+          UPPER PORTION: LIVE COFFEE PREPARATION (Unobscured Cup & Pouring Action)
+          - Stable unclipped container
+          - Unified cup assembly scaled anchored to table base (50% 82%)
+          ========================================================================= */}
+      {!isCold && (
+        <div className="milk-vis-media-container">
+          <div
+            className="milk-vis-cup-assembly"
+            style={{
+              transform: isLarge ? 'scale(1.12)' : 'scale(1)',
+              transformOrigin: '50% 78%',
+              transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          >
+            {!videoError && (
+              <video
+                ref={videoRef}
+                src="/cappuccino_craft.mp4"
+                className="milk-vis-video"
+                muted
+                playsInline
+                preload="auto"
+                poster={activePoster}
+                onLoadedData={() => setVideoLoaded(true)}
+                onError={() => setVideoError(true)}
+                style={{
+                  filter: activeKey === 'milk'
+                    ? currentMilk.tintFilter
+                    : activeKey === 'strength' && strength === 'Double Shot'
+                    ? 'contrast(1.08) brightness(0.96) saturate(1.12)'
+                    : 'none'
+                }}
+              />
+            )}
+
+            {(!videoLoaded || videoError) && (
+              <img
+                src={activePoster}
+                alt={config.label}
+                className="milk-vis-fallback-img"
+                style={{
+                  filter: activeKey === 'milk'
+                    ? currentMilk.tintFilter
+                    : activeKey === 'strength' && strength === 'Double Shot'
+                    ? 'contrast(1.08) brightness(0.96) saturate(1.12)'
+                    : 'none'
+                }}
+              />
+            )}
+
+            {activeKey === 'ready' && (
+              <div className="milk-vis-steam-overlay pointer-events-none">
+                <div className="steam-line steam-line-1" />
+                <div className="steam-line steam-line-2" />
+                <div className="steam-line steam-line-3" />
+              </div>
+            )}
           </div>
-          <span className="text-[11px] font-bold text-navy">{currentMilk.label}</span>
         </div>
       )}
 
-      {/* Floating active milk badge */}
-      <div className="milk-vis-badge">
+      {/* COLD COFFEE HIGHBALL GLASS STAGE */}
+      {isCold && (
+        <div
+          className="milk-vis-cold-stage"
+          style={{
+            transform: isLarge ? 'scale(1.14)' : 'scale(1)',
+            transformOrigin: '50% 90%',
+            transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        >
+          {activeKey === 'ready' ? (
+            <div className="milk-vis-cold-finished">
+              <img
+                src="/craft/cold_coffee_thumb.jpg"
+                alt="Classic Cold Coffee"
+                className="cold-coffee-img rounded-2xl shadow-md"
+              />
+              <div className="cold-frost-glow" />
+            </div>
+          ) : (
+            <div className="cold-glass-tumbler">
+              <div className="cold-glass-rim" />
+              <div className="cold-liquid-column">
+                <div
+                  className="cold-espresso-layer"
+                  style={{
+                    height: activeKey !== 'size' ? (strength === 'Double Shot' ? '42%' : '32%') : '0%',
+                    backgroundColor: strength === 'Double Shot' ? '#221109' : '#381C10'
+                  }}
+                />
+                <div
+                  className="cold-milk-layer"
+                  style={{
+                    height: (activeKey === 'milk' || activeKey === 'sweetness' || activeKey === 'ready') ? '76%' : '0%',
+                    backgroundColor: currentMilk.colorHex
+                  }}
+                />
+                <div
+                  className="cold-foam-head"
+                  style={{
+                    opacity: (activeKey === 'sweetness' || activeKey === 'ready') ? 1 : 0,
+                    height: (activeKey === 'sweetness' || activeKey === 'ready') ? '16%' : '0%'
+                  }}
+                />
+                <div className="cold-ice-cube ice-1" />
+                <div className="cold-ice-cube ice-2" />
+                <div className="cold-ice-cube ice-3" />
+              </div>
+              <div className="cold-glass-coaster" />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =========================================================================
+          TOP OVERLAYS: INGREDIENT BADGE, PRICE PILL, REPLAY ACTION
+          ========================================================================= */}
+
+      {/* Top Left: Active Ingredient & Size Badge */}
+      <div className="milk-vis-pill milk-vis-pill--left">
         <span
-          className="milk-vis-badge__dot"
-          style={{ backgroundColor: hasPoured ? currentMilk.colorHex : '#A89F91' }}
+          className="milk-vis-dot"
+          style={{
+            backgroundColor: activeKey !== 'size' ? currentMilk.colorHex : '#A89F91'
+          }}
         />
-        <span className="milk-vis-badge__text">
-          {hasPoured ? `${currentMilk.label} • ${currentMilk.desc}` : 'Empty Glass • Select Milk'}
+        <span className="milk-vis-pill-text">
+          {activeKey === 'size' && (isCold ? (isLarge ? 'Highball Glass • Large (450ml)' : 'Highball Glass • Regular (350ml)') : (isLarge ? 'Glass Cup • Large (350ml)' : 'Glass Cup • Regular (240ml)'))}
+          {activeKey === 'strength' && `Espresso (${strength})`}
+          {activeKey === 'milk' && currentMilk.label}
+          {activeKey === 'sweetness' && (isCold ? `Chilled • ${sweetness}` : `Latte Art • ${sweetness}`)}
+          {activeKey === 'ready' && 'Ready to Serve'}
         </span>
       </div>
 
-      {/* Replay Pour Animation Button */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          triggerPourAnimation(activeMilkKey);
-        }}
-        className="milk-vis-replay-btn"
-        title="Replay milk pour animation"
-        aria-label="Replay milk pour"
-      >
-        <RotateCcw className={`w-3.5 h-3.5 ${isPouring ? 'animate-spin' : ''}`} />
-      </button>
+      {/* Top Right: Product Name & Price Pill + Replay Button */}
+      <div className="milk-vis-top-right">
+        {unitPrice != null && (
+          <div className="milk-vis-price-pill">
+            <span className="text-[10px] font-black uppercase tracking-wider text-navy truncate max-w-[110px]">
+              {productName}
+            </span>
+            <span className="text-xs font-black text-navy">
+              ₹{unitPrice}
+            </span>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={handleReplay}
+          className="milk-vis-replay-action"
+          title="Replay step animation"
+          aria-label="Replay animation"
+        >
+          <RotateCcw className={`w-3.5 h-3.5 ${isPlaying ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
 
-      {/* Pouring status or drag hint */}
-      {isPouring ? (
-        <div className="milk-vis-pouring-indicator">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-          <span>Pouring {currentMilk.label}...</span>
+      {/* =========================================================================
+          LAYER 2: FLOATING AI CASHIER CUSTOMIZATION CARD (Overlaid at Lower Portion)
+          ========================================================================= */}
+      {children && (
+        <div className="milk-vis-floating-card-slot">
+          {children}
         </div>
-      ) : (
-        <span className="milk-vis-hint">
-          {hasPoured ? 'Drag to rotate • 3D Glass' : 'Tap milk below to pour'}
-        </span>
       )}
     </div>
   );
 };
-
-export const MilkVisualization = (props) => (
-  <MilkErrorBoundary>
-    <MilkVisualizationInner {...props} />
-  </MilkErrorBoundary>
-);

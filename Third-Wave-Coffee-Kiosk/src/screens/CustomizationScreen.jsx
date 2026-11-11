@@ -4,7 +4,7 @@ import { KioskHeader } from '../components/KioskHeader';
 import { MilkVisualization, resolveMilkKey } from '../components/MilkVisualization';
 import { CUSTOMIZATION_OPTIONS, PASTRY_RECOMMENDATIONS, PRODUCTS } from '../data/products';
 import { useKiosk } from '../context/KioskContext';
-import { Plus, Minus, Check, Flame, Snowflake, ShoppingBag } from 'lucide-react';
+import { Plus, Minus, Check, ArrowRight, Sparkles, ShoppingBag, RotateCcw } from 'lucide-react';
 
 export const CustomizationScreen = () => {
   const { selectedProduct, addToCart, addDirectToCart, navigateTo } = useKiosk();
@@ -12,47 +12,104 @@ export const CustomizationScreen = () => {
   // Fallback to Cappuccino if directly opened
   const product = selectedProduct || PRODUCTS.find(p => p.id === 'cappuccino') || PRODUCTS[1];
 
-  // Customization state
+  // Determine if drink is Cold Coffee or Hot Cappuccino
+  const isColdCoffee = useMemo(() => {
+    const id = (product.id || '').toLowerCase();
+    const name = (product.name || '').toLowerCase();
+    return (
+      id.includes('cold') ||
+      id.includes('iced') ||
+      name.includes('cold') ||
+      name.includes('iced') ||
+      product.defaultTemperature === 'Iced'
+    );
+  }, [product]);
+
+  // Standard 4-Step Customization Sequence:
+  // 1. Cup Size, 2. Strength, 3. Milk, 4. Sweetness
+  const STEPS = [
+    {
+      key: 'size',
+      stepNum: 1,
+      label: 'Cup Size',
+      question: 'Which cup size would you prefer today?',
+      hint: 'Choose your preferred volume'
+    },
+    {
+      key: 'strength',
+      stepNum: 2,
+      label: 'Strength',
+      question: 'How bold would you like your espresso shot?',
+      hint: 'Arabica espresso extraction'
+    },
+    {
+      key: 'milk',
+      stepNum: 3,
+      label: 'Milk',
+      question: 'Which type of milk shall I steam for you?',
+      hint: 'Fresh dairy or artisanal plant milks'
+    },
+    {
+      key: 'sweetness',
+      stepNum: 4,
+      label: 'Sweetness',
+      question: 'What sweetness level suits your taste?',
+      hint: 'Standard café recipe or customized sugar'
+    }
+  ];
+
+  // Current Card Step Index: 0 to 3
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const activeStep = STEPS[currentStepIndex] || STEPS[0];
+
+  // Customization Selections
   const [size, setSize] = useState('Regular');
-  const [temperature, setTemperature] = useState(product.defaultTemperature || 'Hot');
+  const [strength, setStrength] = useState('Double Shot');
   const [milk, setMilk] = useState('Regular');
-  const [milkPourTrigger, setMilkPourTrigger] = useState(0);
   const [sugar, setSugar] = useState('Regular Sugar');
-  const [extraShot, setExtraShot] = useState(false);
+  const [pourTrigger, setPourTrigger] = useState(0);
   const [quantity, setQuantity] = useState(1);
 
-  // Derive available sizes: exact independent prices from photographs
+  // Available Sizes
   const availableSizes = useMemo(() => {
     if (product.largePrice != null && product.largePrice > product.price) {
       const diff = product.largePrice - product.price;
       return [
-        { id: 'Regular', label: 'Regular', sizeMl: 'Standard Cup', priceDiff: 0 },
-        { id: 'Large', label: 'Large', sizeMl: 'Large Cup', priceDiff: diff }
+        { id: 'Regular', label: 'Regular', sizeMl: 'Standard Cup (240ml)', priceDiff: 0 },
+        { id: 'Large', label: 'Large', sizeMl: 'Large Cup (350ml)', priceDiff: diff }
       ];
     }
     return [
-      { id: 'Regular', label: 'Regular', sizeMl: 'Standard Cup', priceDiff: 0 }
+      { id: 'Regular', label: 'Regular', sizeMl: 'Standard Cup (240ml)', priceDiff: 0 },
+      { id: 'Large', label: 'Large', sizeMl: 'Large Cup (350ml)', priceDiff: 40 }
     ];
   }, [product]);
 
-  // Calculate live item unit price based on customization
+  // Available Strengths
+  const STRENGTH_OPTIONS = [
+    { id: 'Single Shot', label: 'Single Shot', desc: 'Smooth & balanced Arabica', priceDiff: 0 },
+    { id: 'Double Shot', label: 'Double Shot', desc: 'Bold crema punch', priceDiff: 50 }
+  ];
+
+  // Unit Price Calculation
   const unitPrice = useMemo(() => {
     let base = product.price;
 
-    // Size add-on (exact menu photograph price)
     if (size === 'Large' && product.largePrice != null) {
       base = product.largePrice;
+    } else if (size === 'Large') {
+      base += 40;
     }
 
-    // Milk add-on
+    if (strength === 'Double Shot') {
+      base += 50;
+    }
+
     const milkConfig = CUSTOMIZATION_OPTIONS.milks.find(m => m.id === milk || m.label === milk);
     if (milkConfig) base += milkConfig.priceDiff;
 
-    // Extra shot
-    if (extraShot) base += CUSTOMIZATION_OPTIONS.extraShotPrice;
-
     return base;
-  }, [product.price, product.largePrice, size, milk, extraShot]);
+  }, [product.price, product.largePrice, size, strength, milk]);
 
   const totalPrice = unitPrice * quantity;
 
@@ -60,10 +117,9 @@ export const CustomizationScreen = () => {
   const handleAddToCart = () => {
     const customizationsSummary = [
       `${size} (${size === 'Large' ? '350 ml' : '240 ml'})`,
-      product.supportsTemperature ? temperature : null,
-      product.customizable ? `${milk} Milk` : null,
-      product.customizable ? sugar : null,
-      extraShot ? '+1 Espresso Shot' : null
+      strength,
+      `${milk} Milk`,
+      sugar
     ].filter(Boolean);
 
     const configuredItem = {
@@ -74,10 +130,10 @@ export const CustomizationScreen = () => {
       unitPrice,
       quantity,
       size,
-      temperature: product.supportsTemperature ? temperature : (product.defaultTemperature || 'Warm'),
+      temperature: isColdCoffee ? 'Iced' : 'Hot',
       milk,
       sugar,
-      extraShot,
+      strength,
       totalPrice,
       customizationsSummary
     };
@@ -86,10 +142,22 @@ export const CustomizationScreen = () => {
     navigateTo('menu');
   };
 
+  // Advance to next step card
+  const handleNextCard = () => {
+    if (currentStepIndex < STEPS.length - 1) {
+      setCurrentStepIndex(prev => prev + 1);
+      setPourTrigger(prev => prev + 1);
+    } else {
+      setPourTrigger(prev => prev + 1);
+    }
+  };
+
   return (
-    <div className="customization-screen w-full h-full bg-cream-100 flex flex-col justify-between select-none overflow-hidden">
+    <div className="customization-screen w-full h-full bg-[#F8F5EE] flex flex-col justify-between select-none overflow-hidden font-sans">
       
-      {/* Kiosk Header */}
+      {/* =========================================================================
+          1. HEADER (Existing Third Wave Coffee Header)
+          ========================================================================= */}
       <KioskHeader
         title="Customisation"
         subtitle={product.name}
@@ -98,358 +166,338 @@ export const CustomizationScreen = () => {
         onBackOverride={() => navigateTo('menu')}
       />
 
-      {/* Main Scrollable Content */}
-      <main className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3">
+      {/* Main Responsive Viewport: Distributes expanded coffee visualization and moves content downward */}
+      <main className="customization-screen__main flex-1 min-h-0 px-3 sm:px-4 pt-1 pb-1 overflow-y-auto flex flex-col justify-between">
         
-        {/* Top Hero Section: Left = 3D Milk Glass, Right = Product Image & Details */}
-        <div className="grid grid-cols-2 gap-2.5 items-stretch min-h-[200px]">
-          
-          {/* Left: 3D Interactive Milk Pouring Glass Component */}
-          <div className="flex flex-col h-full">
-            <MilkVisualization
-              selectedMilk={milk}
-              size={size}
-              pourTrigger={milkPourTrigger}
-              temperature={temperature}
-            />
-          </div>
-
-          {/* Right: Product Coffee Image & Information Card */}
-          <div className="relative rounded-2xl overflow-hidden bg-white border border-beige-muted/80 shadow-sm flex flex-col justify-between p-2.5 h-full">
-            <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-1.5 shadow-sm">
-              <img
-                src={product.image}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-navy/60 via-transparent to-transparent" />
-
-              {/* Badges on image */}
-              <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
-                {product.veg && (
-                  <span className="w-4 h-4 rounded bg-white/95 border border-emerald-700 flex items-center justify-center shadow-xs">
-                    <span className="w-2 h-2 rounded-full bg-emerald-700"></span>
+        {/* =========================================================================
+            2. EXPANDED COFFEE PREPARATION SCENE
+            - Consumes all remaining vertical screen height
+            - Original cup remains in upper position with natural proportions
+            - Extended marble table & café background fills previously empty region
+            - Floating AI Cashier card shifted downward into the extended scene
+            - Existing Quantity UI positioned directly below AI Cashier card
+            ========================================================================= */}
+        <div className="customization-screen__vis-container flex-1 min-h-[500px] sm:min-h-[540px] w-full flex flex-col mb-1.5">
+          <MilkVisualization
+            drinkStyle={isColdCoffee ? 'cold' : 'cappuccino'}
+            stepKey={activeStep.key}
+            isReady={currentStepIndex === 3}
+            selectedMilk={milk}
+            size={size}
+            strength={strength}
+            sweetness={sugar}
+            pourTrigger={pourTrigger}
+            productImage={product.image}
+            productName={product.name}
+            unitPrice={unitPrice}
+            className="flex-1 w-full h-full"
+          >
+            {/* FLOATING AI CASHIER CARD (Shifted slightly down into extended table area) */}
+            <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3 sm:p-3.5 border border-white/80 shadow-[0_8px_30px_rgba(28,42,57,0.12)] space-y-2.5 transition-all duration-300">
+              
+              {/* Card Header: Step Indicator & Step Jump Dots */}
+              <div className="flex items-center justify-between border-b border-navy/10 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-navy text-white text-[10px] font-black uppercase tracking-wider">
+                    {activeStep.stepNum}/4
                   </span>
-                )}
-                {product.badge && (
-                  <span className="px-1.5 py-0.5 rounded bg-white/95 text-navy text-[8px] font-black uppercase tracking-wider shadow-xs">
-                    {product.badge}
+                  <span className="text-[11px] font-black uppercase tracking-wider text-taupe-warm">
+                    AI Cashier • {activeStep.label}
                   </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col justify-between flex-1">
-              <div>
-                <span className="text-[8.5px] uppercase font-bold tracking-widest text-taupe-warm block">
-                  {product.category === 'specials' ? 'TWC Signature' : product.category === 'combos' ? 'Meal Combo' : 'House Roast'}
-                </span>
-                <h2 className="text-xs sm:text-sm font-black font-sans tracking-tight text-navy leading-snug line-clamp-2">
-                  {product.name}
-                </h2>
-              </div>
-
-              <div className="flex items-baseline justify-between pt-1.5 mt-1 border-t border-beige-muted/60">
-                <span className="text-[9.5px] text-taupe-warm font-semibold">Price</span>
-                <span className="text-sm sm:text-base font-black text-navy font-sans">
-                  ₹{unitPrice}
-                </span>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Flavour Tasting Notes */}
-        {product.description && (
-          <div className="p-2 rounded-xl bg-white border border-beige-muted/70 text-xs">
-            <p className="text-taupe-warm leading-relaxed text-[10.5px]">
-              {product.description}
-            </p>
-            {product.notes && (
-              <div className="flex flex-wrap gap-1 pt-1">
-                {product.notes.map((n, i) => (
-                  <span key={i} className="px-1.5 py-0.5 rounded bg-cream-200 text-[8.5px] font-bold text-navy/80">
-                    {n}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Customization Options Container Just Below 3D Glass & Product Card */}
-        <div className="bg-white rounded-2xl p-3 border border-beige-muted/80 shadow-sm space-y-3.5">
-          
-          {/* 1. Size Selection */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-black uppercase tracking-wider text-navy">
-                1. Select Size
-              </label>
-              <span className="text-[10px] text-taupe-warm font-medium">Single choice</span>
-            </div>
-
-            <div className={`grid ${availableSizes.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
-              {availableSizes.map((s) => {
-                const isSelected = size === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setSize(s.id)}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border-2 transition-all active:scale-[0.98] cursor-pointer ${
-                      isSelected
-                        ? 'bg-beige border-navy text-navy font-black shadow-sm'
-                        : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold'
-                    }`}
-                  >
-                    <div className="text-left leading-tight">
-                      <span className="text-xs sm:text-sm block">{s.label}</span>
-                      <span className="text-[9px] text-taupe-warm font-normal">{s.sizeMl}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      {s.priceDiff > 0 && (
-                        <span className="text-[9px] font-bold bg-white px-1.5 py-0.5 rounded text-navy border border-beige-muted">
-                          +₹{s.priceDiff}
-                        </span>
-                      )}
-                      <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                        isSelected ? 'border-navy bg-navy text-white' : 'border-beige-dark'
-                      }`}>
-                        {isSelected && <Check className="w-2 h-2" />}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 2. Temperature (if supported) */}
-          {product.supportsTemperature && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-black uppercase tracking-wider text-navy">
-                  2. Temperature
-                </label>
-                <span className="text-[10px] text-taupe-warm font-medium">Brew temp</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {CUSTOMIZATION_OPTIONS.temperatures.map((temp) => {
-                  const isSelected = temperature === temp.id;
-                  const Icon = temp.id === 'Hot' ? Flame : Snowflake;
-
-                  return (
-                    <button
-                      key={temp.id}
-                      type="button"
-                      onClick={() => setTemperature(temp.id)}
-                      className={`flex items-center justify-between p-2.5 rounded-xl border-2 transition-all active:scale-[0.98] cursor-pointer ${
-                        isSelected
-                          ? 'bg-beige border-navy text-navy font-black shadow-sm'
-                          : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`w-5 h-5 rounded flex items-center justify-center ${
-                          temp.id === 'Hot' ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-900'
-                        }`}>
-                          <Icon className="w-3 h-3" />
-                        </div>
-                        <span className="text-xs font-black">{temp.label}</span>
-                      </div>
-
-                      <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                        isSelected ? 'border-navy bg-navy text-white' : 'border-beige-dark'
-                      }`}>
-                        {isSelected && <Check className="w-2 h-2" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* 3. Milk Choice (5 Variants with Interactive Visual Feedback) */}
-          {product.customizable && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-black uppercase tracking-wider text-navy">
-                  3. Choice of Milk
-                </label>
-                <span className="text-[10px] text-taupe-warm font-medium">Select to pour in 3D</span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                {CUSTOMIZATION_OPTIONS.milks.map((m) => {
-                  const isSelected = resolveMilkKey(milk) === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => {
-                        setMilk(m.id);
-                        setMilkPourTrigger(t => t + 1);
-                      }}
-                      className={`p-2 rounded-xl border-2 text-left transition-all active:scale-[0.98] cursor-pointer ${
-                        isSelected
-                          ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
-                          : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[11px] font-extrabold truncate">{m.id}</span>
-                        <div className={`w-3 h-3 rounded-full border flex items-center justify-center shrink-0 ${
-                          isSelected ? 'border-navy bg-navy text-white' : 'border-beige-dark'
-                        }`}>
-                          {isSelected && <Check className="w-1.5 h-1.5" />}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-navy font-bold">
-                          {m.priceDiff === 0 ? 'Free' : `+₹${m.priceDiff}`}
-                        </span>
-                        <span className="text-[8.5px] text-taupe-warm font-medium truncate">
-                          {m.tag}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* 4. Extra Shot */}
-          {product.customizable && (
-            <div className="space-y-1.5">
-              <button
-                type="button"
-                onClick={() => setExtraShot(!extraShot)}
-                className={`w-full flex items-center justify-between p-2.5 rounded-xl border-2 transition-all active:scale-[0.98] cursor-pointer ${
-                  extraShot
-                    ? 'bg-beige border-navy text-navy font-black shadow-sm'
-                    : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold'
-                }`}
-              >
-                <div className="text-left leading-tight">
-                  <span className="text-xs font-extrabold block">Extra Arabica Shot</span>
-                  <span className="text-[9px] text-taupe-warm font-normal">Bold crema boost</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold bg-white px-2 py-0.5 rounded text-navy border border-beige-muted">
-                    +₹50
-                  </span>
-                  <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
-                    extraShot ? 'border-navy bg-navy text-white' : 'border-beige-dark'
-                  }`}>
-                    {extraShot && <Check className="w-2.5 h-2.5" />}
-                  </div>
-                </div>
-              </button>
-            </div>
-          )}
-
-          {/* 5. Sugar */}
-          {product.customizable && (
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-black uppercase tracking-wider text-navy">
-                4. Sweetness
-              </label>
-
-              <div className="grid grid-cols-3 gap-1.5">
-                {CUSTOMIZATION_OPTIONS.sugar.map((sug) => {
-                  const isSelected = sugar === sug.label;
-                  return (
+                  {STEPS.map((st, idx) => (
                     <button
-                      key={sug.id}
+                      key={st.key}
                       type="button"
-                      onClick={() => setSugar(sug.label)}
-                      className={`p-2 rounded-xl border-2 text-center transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-beige border-navy text-navy font-black shadow-sm'
-                          : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold'
+                      onClick={() => {
+                        setCurrentStepIndex(idx);
+                        setPourTrigger(p => p + 1);
+                      }}
+                      className={`h-2 rounded-full transition-all cursor-pointer ${
+                        currentStepIndex === idx
+                          ? 'w-6 bg-navy shadow-xs'
+                          : currentStepIndex > idx
+                          ? 'w-2 bg-emerald-600'
+                          : 'w-2 bg-beige-muted/70 hover:bg-beige-dark'
                       }`}
-                    >
-                      <span className="text-[11px] font-bold block">{sug.id}</span>
-                      <span className="text-[9px] text-taupe-warm">{sug.desc}</span>
-                    </button>
-                  );
-                })}
+                      title={`Step ${idx + 1}: ${st.label}`}
+                    />
+                  ))}
+                </div>
               </div>
+
+              {/* Conversational AI Question */}
+              <div>
+                <h3 className="text-xs sm:text-sm font-black text-navy leading-snug">
+                  {activeStep.question}
+                </h3>
+                <span className="text-[9.5px] text-taupe-warm font-medium">
+                  {activeStep.hint}
+                </span>
+              </div>
+
+              {/* Selection Options Body */}
+              <div>
+                {/* Step 1: Cup Size */}
+                {activeStep.key === 'size' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableSizes.map((s) => {
+                      const isSelected = size === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => {
+                            setSize(s.id);
+                            setPourTrigger(p => p + 1);
+                          }}
+                          className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer active:scale-98 ${
+                            isSelected
+                              ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
+                              : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
+                          }`}
+                        >
+                          <div className="text-left">
+                            <span className="text-xs font-black block">{s.label}</span>
+                            <span className="text-[8.5px] text-taupe-warm font-medium">{s.sizeMl}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {s.priceDiff > 0 && (
+                              <span className="text-[9px] font-bold bg-white px-1.5 py-0.5 rounded text-navy border border-beige-muted">
+                                +₹{s.priceDiff}
+                              </span>
+                            )}
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                              isSelected ? 'border-navy bg-navy text-white' : 'border-beige-dark'
+                            }`}>
+                              {isSelected && <Check className="w-2.5 h-2.5" />}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Step 2: Strength */}
+                {activeStep.key === 'strength' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {STRENGTH_OPTIONS.map((st) => {
+                      const isSelected = strength === st.id;
+                      return (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() => {
+                            setStrength(st.id);
+                            setPourTrigger(p => p + 1);
+                          }}
+                          className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer active:scale-98 ${
+                            isSelected
+                              ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
+                              : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
+                          }`}
+                        >
+                          <div className="text-left">
+                            <span className="text-xs font-black block">{st.label}</span>
+                            <span className="text-[8.5px] text-taupe-warm font-medium">{st.desc}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {st.priceDiff > 0 && (
+                              <span className="text-[9px] font-bold bg-white px-1.5 py-0.5 rounded text-navy border border-beige-muted">
+                                +₹{st.priceDiff}
+                              </span>
+                            )}
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                              isSelected ? 'border-navy bg-navy text-white' : 'border-beige-dark'
+                            }`}>
+                              {isSelected && <Check className="w-2.5 h-2.5" />}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Step 3: Milk Selection */}
+                {activeStep.key === 'milk' && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {CUSTOMIZATION_OPTIONS.milks.map((m) => {
+                      const isSelected = resolveMilkKey(milk) === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            setMilk(m.id);
+                            setPourTrigger(p => p + 1);
+                          }}
+                          className={`p-2 rounded-xl border-2 text-left transition-all cursor-pointer active:scale-98 ${
+                            isSelected
+                              ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
+                              : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[11px] font-extrabold truncate">{m.id}</span>
+                            <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
+                              isSelected ? 'border-navy bg-navy text-white' : 'border-beige-dark'
+                            }`}>
+                              {isSelected && <Check className="w-2 h-2" />}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-[9.5px]">
+                            <span className="text-navy font-bold">
+                              {m.priceDiff === 0 ? 'Free' : `+₹${m.priceDiff}`}
+                            </span>
+                            <span className="text-[8px] text-taupe-warm font-medium truncate">
+                              {m.tag}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Step 4: Sweetness */}
+                {activeStep.key === 'sweetness' && (
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {CUSTOMIZATION_OPTIONS.sugar.map((sug) => {
+                      const isSelected = sugar === sug.label;
+                      return (
+                        <button
+                          key={sug.id}
+                          type="button"
+                          onClick={() => {
+                            setSugar(sug.label);
+                            setPourTrigger(p => p + 1);
+                          }}
+                          className={`p-2 rounded-xl border-2 text-center transition-all cursor-pointer active:scale-98 ${
+                            isSelected
+                              ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
+                              : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
+                          }`}
+                        >
+                          <span className="text-[11px] font-black block">{sug.id}</span>
+                          <span className="text-[8.5px] text-taupe-warm block">{sug.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+              </div>
+
+              {/* Continue / Next Button */}
+              <div className="pt-0.5">
+                {currentStepIndex < 3 ? (
+                  <button
+                    type="button"
+                    onClick={handleNextCard}
+                    className="w-full py-2.5 rounded-xl bg-navy text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm cursor-pointer hover:bg-navy-charcoal transition-all active:scale-99"
+                  >
+                    <span>Continue to {STEPS[currentStepIndex + 1].label}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+                    <span className="text-[10.5px] font-extrabold text-emerald-800 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Ready to Add to Cart!</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStepIndex(0)}
+                      className="text-[10px] font-bold text-taupe-warm hover:text-navy cursor-pointer flex items-center gap-1"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Change</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
             </div>
-          )}
 
-          {/* 6. Quantity Selector */}
-          <div className="flex items-center justify-between pt-2 border-t border-beige-muted/70">
-            <span className="text-xs font-black uppercase tracking-wider text-navy">
-              Quantity
-            </span>
-
-            <div className="flex items-center gap-3 bg-cream-100 rounded-xl border border-beige-muted p-1">
-              <button
-                type="button"
-                onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                disabled={quantity <= 1}
-                className="w-8 h-8 rounded-lg bg-white text-navy flex items-center justify-center hover:bg-cream-200 disabled:opacity-40 transition-all active:scale-95 shadow-sm cursor-pointer"
-              >
-                <Minus className="w-3.5 h-3.5" />
-              </button>
-
-              <span className="text-base font-black text-navy w-5 text-center font-sans">
-                {quantity}
+            {/* EXISTING QUANTITY UI (Positioned inside the extended scene, directly below the card) */}
+            <div className="bg-white/95 backdrop-blur-md rounded-xl p-2.5 px-3 border border-white/80 shadow-md flex items-center justify-between mt-2">
+              <span className="text-xs font-black uppercase tracking-wider text-navy">
+                Quantity
               </span>
 
-              <button
-                type="button"
-                onClick={() => setQuantity(q => q + 1)}
-                className="w-8 h-8 rounded-lg bg-white text-navy flex items-center justify-center hover:bg-cream-200 transition-all active:scale-95 shadow-sm cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
+              <div className="flex items-center gap-3 bg-cream-100 rounded-lg border border-beige-muted p-1">
+                <button
+                  type="button"
+                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  disabled={quantity <= 1}
+                  className="w-7 h-7 rounded-md bg-white text-navy flex items-center justify-center hover:bg-cream-200 disabled:opacity-40 transition-all active:scale-95 shadow-xs cursor-pointer"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
 
+                <span className="text-sm font-black text-navy w-4 text-center font-sans">
+                  {quantity}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setQuantity(q => q + 1)}
+                  className="w-7 h-7 rounded-md bg-white text-navy flex items-center justify-center hover:bg-cream-200 transition-all active:scale-95 shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+          </MilkVisualization>
         </div>
 
-        {/* "Pairs Well With" Pastry Cards */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
+        {/* =========================================================================
+            3. PAIRS WELL WITH RECOMMENDATIONS
+            Positioned immediately below the expanded visualization with minimal gap,
+            sitting right above the fixed Add to Cart bar.
+            ========================================================================= */}
+        <div className="customization-screen__pairs-section shrink-0 pt-0.5 pb-1">
+          <div className="flex items-center justify-between px-1">
             <span className="text-[11px] font-extrabold tracking-wider uppercase text-taupe-warm font-sans">
               Pairs Well With
             </span>
-            <span className="text-[10px] font-semibold text-navy/70">Barista pairing</span>
+            <span className="text-[10px] text-taupe-warm font-medium">
+              Barista pairing
+            </span>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            {PASTRY_RECOMMENDATIONS.map((pastry) => (
+            {PASTRY_RECOMMENDATIONS.slice(0, 2).map((pastry) => (
               <div
                 key={pastry.id}
-                className="bg-white rounded-xl p-2 border border-beige-muted/80 flex items-center justify-between gap-2 shadow-sm"
+                className="bg-white rounded-2xl p-2.5 border border-beige-muted/80 shadow-sm flex items-center justify-between gap-2"
               >
-                <img
-                  src={pastry.image}
-                  alt={pastry.name}
-                  className="w-10 h-10 rounded-lg object-cover shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <h5 className="text-[10px] font-extrabold text-navy truncate">
-                    {pastry.name}
-                  </h5>
-                  <span className="text-[10px] font-black text-navy">
-                    ₹{pastry.price}
-                  </span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <img
+                    src={pastry.image}
+                    alt={pastry.name}
+                    className="w-10 h-10 rounded-xl object-cover border border-beige-muted shrink-0"
+                  />
+                  <div className="truncate">
+                    <span className="text-[11px] font-black text-navy truncate block">
+                      {pastry.name}
+                    </span>
+                    <span className="text-[10px] font-extrabold text-navy">
+                      ₹{pastry.price}
+                    </span>
+                  </div>
                 </div>
+
                 <button
                   type="button"
                   onClick={() => addDirectToCart(pastry)}
-                  title="Add pastry to tray"
-                  className="w-7 h-7 rounded-lg bg-cream-200 hover:bg-navy hover:text-white text-navy flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                  className="w-7 h-7 rounded-lg bg-cream-100 hover:bg-cream-200 border border-beige-muted text-navy flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0"
+                  title={`Add ${pastry.name}`}
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -460,23 +508,17 @@ export const CustomizationScreen = () => {
 
       </main>
 
-      {/* Sticky Bottom Actions inside the Portrait Kiosk */}
-      <footer className="sticky bottom-0 z-30 w-full bg-cream-100/95 backdrop-blur-md border-t border-beige-muted/80 px-4 py-3 shadow-lg space-y-1.5 shrink-0">
+      {/* =========================================================================
+          4. FIXED ADD TO CART BUTTON
+          ========================================================================= */}
+      <footer className="customization-screen__bottom-bar">
         <button
           type="button"
           onClick={handleAddToCart}
-          className="w-full py-3.5 rounded-xl bg-navy hover:bg-navy-charcoal active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-kiosk border border-navy transition-all cursor-pointer"
+          className="customization-screen__add-btn"
         >
-          <ShoppingBag className="w-4 h-4 text-white" />
-          <span>ADD TO CART • ₹{totalPrice}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigateTo('menu')}
-          className="w-full py-1.5 text-[11px] font-bold uppercase tracking-wider text-taupe-warm hover:text-navy text-center transition-colors cursor-pointer"
-        >
-          BACK TO MENU
+          <ShoppingBag className="w-4 h-4" />
+          <span>Add to Cart • ₹{totalPrice}</span>
         </button>
       </footer>
 
