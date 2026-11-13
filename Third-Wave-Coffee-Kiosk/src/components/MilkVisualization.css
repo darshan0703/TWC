@@ -1,0 +1,373 @@
+/* =========================================================================
+   MilkVisualization.css — Photorealistic Café Barista Craft Experience
+   Layer 1: Large continuous visualization background extended downward
+   Layer 2: Floating AI Cashier card & Quantity slot over extended table
+   ========================================================================= */
+
+.milk-vis-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 0%;
+  min-height: 500px;
+  border-radius: 1.5rem;
+  background: url('/craft/cafe_extended_scene.jpg') no-repeat top center / cover,
+              radial-gradient(circle at 50% 25%, #FAF5ED 0%, #EDE4D6 45%, #D4C4B0 75%, #C8B8A4 100%);
+  border: 1.5px solid rgba(216, 207, 196, 0.85);
+  box-shadow: 0 8px 32px rgba(28, 42, 57, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  overflow: hidden;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 640px) {
+  .milk-vis-stage {
+    min-height: 540px;
+  }
+}
+
+/* =========================================================================
+   UPPER MEDIA CONTAINER (Cup & Live Pouring Animation)
+   Preserves natural cup proportions without stretching or distortion.
+   All cup elements scale together inside .milk-vis-cup-assembly anchored to table.
+   ========================================================================= */
+.milk-vis-media-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.milk-vis-cup-assembly {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+}
+
+.milk-vis-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+  pointer-events: none;
+  transition: filter 0.4s ease;
+}
+
+.milk-vis-fallback-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  pointer-events: none;
+  transition: opacity 0.3s ease, filter 0.4s ease;
+}
+
+/* Rising steam animation */
+.milk-vis-steam-overlay {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 60px;
+  display: flex;
+  justify-content: space-around;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.steam-line {
+  width: 4px;
+  height: 40px;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.7), transparent);
+  border-radius: 9999px;
+  filter: blur(2px);
+  animation: steamRise 2.5s infinite ease-out;
+}
+
+.steam-line-1 { animation-delay: 0s; }
+.steam-line-2 { animation-delay: 0.8s; height: 50px; }
+.steam-line-3 { animation-delay: 1.5s; }
+
+@keyframes steamRise {
+  0% {
+    transform: translateY(15px) scaleX(1);
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-25px) scaleX(2.5);
+    opacity: 0;
+  }
+}
+
+/* =========================================================================
+   COLD COFFEE STAGE
+   ========================================================================= */
+.milk-vis-cold-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 330px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 1.5rem;
+  z-index: 1;
+  -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+}
+
+.milk-vis-cold-finished {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 250px;
+}
+
+.cold-coffee-img {
+  max-height: 230px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 24px rgba(28, 42, 57, 0.18));
+}
+
+.cold-frost-glow {
+  position: absolute;
+  inset: -12px;
+  border-radius: 2rem;
+  background: radial-gradient(circle, rgba(190, 227, 248, 0.28) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Cold Highball Tumbler */
+.cold-glass-tumbler {
+  position: relative;
+  width: 90px;
+  height: 185px;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-top: none;
+  border-radius: 0 0 18px 18px;
+  background: rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(3px);
+  box-shadow: 0 10px 28px rgba(28, 42, 57, 0.12), inset 0 -4px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.cold-glass-rim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 9999px;
+}
+
+.cold-liquid-column {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  border-radius: 0 0 14px 14px;
+}
+
+.cold-espresso-layer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, #2b1810 0%, #4a2818 100%);
+  transition: height 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 0 0 14px 14px;
+  z-index: 1;
+}
+
+.cold-milk-layer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  opacity: 0.88;
+  mix-blend-mode: soft-light;
+  transition: height 1.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.4s ease;
+  z-index: 2;
+}
+
+.cold-foam-head {
+  position: absolute;
+  top: 25%;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to bottom, #FFFFFF 0%, #FAF6EE 100%);
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: opacity 0.8s ease, height 0.8s ease;
+  z-index: 3;
+}
+
+.cold-ice-cube {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 5px;
+  backdrop-filter: blur(2px);
+  z-index: 4;
+}
+
+.ice-1 { bottom: 25px; left: 12px; transform: rotate(14deg); }
+.ice-2 { bottom: 55px; right: 14px; transform: rotate(-22deg); }
+.ice-3 { bottom: 85px; left: 24px; transform: rotate(8deg); }
+
+.cold-glass-coaster {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 6px;
+  background: #E8E0D2;
+  border-radius: 9999px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+/* =========================================================================
+   TOP OVERLAYS: PILLS & REPLAY BUTTON
+   ========================================================================= */
+
+.milk-vis-pill {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(28, 42, 57, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  z-index: 20;
+}
+
+.milk-vis-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.milk-vis-pill-text {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1C2A39;
+  line-height: 1;
+}
+
+/* Top Right Container */
+.milk-vis-top-right {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  z-index: 20;
+}
+
+.milk-vis-price-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 0.28rem 0.65rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(28, 42, 57, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+}
+
+.milk-vis-replay-action {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  background-color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(28, 42, 57, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1C2A39;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.milk-vis-replay-action:hover {
+  background-color: #FFFFFF;
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.milk-vis-replay-action:active {
+  transform: scale(0.92);
+}
+
+/* =========================================================================
+   LAYER 2: FLOATING CARD & QUANTITY SLOT
+   Floats over the extended marble counter background
+   ========================================================================= */
+.milk-vis-floating-card-slot {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 640px) {
+  .milk-vis-floating-card-slot {
+    bottom: 1.5rem;
+    left: 1rem;
+    right: 1rem;
+  }
+}

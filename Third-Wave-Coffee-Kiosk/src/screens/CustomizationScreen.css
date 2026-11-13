@@ -5,8 +5,42 @@
 .customization-screen {
   background-color: #F8F5EE;
   color: #1C2A39;
-  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  font-family: 'Lato', "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   touch-action: manipulation;
+}
+
+/* Expanded Visualization Container & Main Viewport Layout */
+.customization-screen__main {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.customization-screen__vis-container {
+  flex: 1 1 0%;
+  min-height: 500px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 640px) {
+  .customization-screen__vis-container {
+    min-height: 540px;
+  }
+}
+
+.customization-screen__pairs-section {
+  flex-shrink: 0;
+  width: 100%;
+}
+
+/* 3D Milk Visualization Interactive Container Wrapper */
+.customization-screen__milk-vis-wrapper {
+  margin-bottom: 0.875rem;
+  width: 100%;
 }
 
 /* Product Hero Card */

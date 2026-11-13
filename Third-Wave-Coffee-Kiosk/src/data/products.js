@@ -1504,9 +1504,11 @@ export const CUSTOMIZATION_OPTIONS = {
     { id: 'Iced', label: 'Iced', description: 'Served over crystalline ice' }
   ],
   milks: [
-    { id: 'Regular', label: 'Standard Dairy', priceDiff: 0, tag: 'Included' },
-    { id: 'Oat', label: 'Oat Milk', priceDiff: 45, tag: 'Plant-Based' },
-    { id: 'Almond', label: 'Almond Milk', priceDiff: 45, tag: 'Nutty & Light' }
+    { id: 'Regular', label: 'Regular Milk', priceDiff: 0, tag: 'Included', desc: 'Natural white' },
+    { id: 'Skimmed', label: 'Skimmed Milk', priceDiff: 0, tag: 'Included', desc: 'Translucent white' },
+    { id: 'Soy', label: 'Soy Milk', priceDiff: 40, tag: 'Plant-Based', desc: 'Creamy white' },
+    { id: 'Almond', label: 'Almond Milk', priceDiff: 45, tag: 'Nutty & Light', desc: 'Warm beige' },
+    { id: 'Oat', label: 'Oat Milk', priceDiff: 45, tag: 'Barista Blend', desc: 'Creamy ivory' }
   ],
   sugar: [
     { id: 'No Sugar', label: 'No Sugar', desc: '0% Added' },
