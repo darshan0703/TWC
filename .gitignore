@@ -54,3 +54,12 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Agent skills & customizations
+.agents/
+
+# Local test suites
+backend/test_product_context_resolution.py
+backend/test_semantic_resolution.py
+backend/test_sequential_customization.py
+
