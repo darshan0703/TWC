@@ -213,6 +213,97 @@ class AgentRuntime:
                     "totals": context.get("cart_totals", {}),
                 }
 
+        # -------------------------------------------------------------
+        # FAST-PATH 3: Active Customization Flow (One Question At A Time)
+        # -------------------------------------------------------------
+        if current_screen == "customization":
+            sess_id = context.get("session_id", "default-session")
+            try:
+                from customization_engine import (
+                    get_customization_session,
+                    start_customization_session,
+                    clear_customization_session,
+                )
+            except ImportError:
+                from backend.customization_engine import (
+                    get_customization_session,
+                    start_customization_session,
+                    clear_customization_session,
+                )
+
+            cust_sess = get_customization_session(sess_id)
+            if not cust_sess and context.get("selected_product"):
+                prod = context["selected_product"]
+                if isinstance(prod, str):
+                    try:
+                        from catalog import get_product
+                    except ImportError:
+                        from backend.catalog import get_product
+                    prod = get_product(prod)
+                if prod and prod.get("customizable", True):
+                    cust_sess = start_customization_session(sess_id, prod)
+
+            if cust_sess:
+                clean_lower = user_input.lower().strip()
+
+                # Handle navigation out of customization screen
+                if any(w in clean_lower for w in ["go back", "back to menu", "return to menu", "cancel order", "cancel customization"]):
+                    clear_customization_session(sess_id)
+                    context["current_screen"] = "menu"
+                    reply = "No problem, let's head back to the roasts and bakes menu. What would you like to explore?"
+                    context.setdefault("conversation_history", []).extend([
+                        HumanMessage(content=user_input),
+                        AIMessage(content=reply)
+                    ])
+                    return {
+                        "screen": "menu",
+                        "message": reply,
+                        "data": {"ui_action": "navigate", "screen": "menu"},
+                        "cart": context.get("cart", []),
+                        "totals": context.get("cart_totals", {}),
+                    }
+
+                # Handle opening tray (if not a confirmation utterance)
+                if any(w in clean_lower for w in ["view tray", "open tray", "view cart", "open cart", "show tray"]) and not cust_sess.pending_confirmation:
+                    context["current_screen"] = "cart"
+                    totals = context.get("cart_totals", {})
+                    items = len(context.get("cart", []))
+                    reply = f"Here is your order tray! You have {items} items with a total of ₹{totals.get('totalPayable', 0)}. Ready to check out?"
+                    context.setdefault("conversation_history", []).extend([
+                        HumanMessage(content=user_input),
+                        AIMessage(content=reply)
+                    ])
+                    return {
+                        "screen": "cart",
+                        "message": reply,
+                        "data": {"ui_action": "navigate", "screen": "cart"},
+                        "cart": context.get("cart", []),
+                        "totals": totals,
+                    }
+
+                # Process spoken turn through Customization Engine
+                turn_res = cust_sess.process_spoken_turn(user_input, context)
+                final_reply = turn_res["reply"]
+                is_completed = turn_res.get("completed", False)
+                next_screen = "menu" if is_completed else "customization"
+
+                if is_completed:
+                    clear_customization_session(sess_id)
+                    context["current_screen"] = "menu"
+
+                context.setdefault("conversation_history", []).extend([
+                    HumanMessage(content=user_input),
+                    AIMessage(content=final_reply)
+                ])
+
+                return {
+                    "screen": next_screen,
+                    "message": final_reply,
+                    "data": turn_res["data"],
+                    "cart": context.get("cart", []),
+                    "totals": context.get("cart_totals", {}),
+                }
+
         tools = create_barista_tools(context)
         llm_with_tools = self.model.bind_tools(tools)
         tool_map = {t.name: t for t in tools}
@@ -318,11 +409,18 @@ class AgentRuntime:
             elif t_name == "select_product_tool":
                 prod = t_res.get("product", {})
                 name = prod.get("name", "beverage")
-                notes = ", ".join(prod.get("notes", []))
-                notes_str = f" with tasting notes of {notes}" if notes else ""
                 if prod.get("customizable"):
-                    return f"Great choice! I've opened the {name}{notes_str}. Would you like it regular or large, and hot or iced?"
+                    sess_id = context.get("session_id", "default-session")
+                    try:
+                        from customization_engine import get_customization_session
+                    except ImportError:
+                        from backend.customization_engine import get_customization_session
+                    cust_sess = get_customization_session(sess_id)
+                    first_q = cust_sess.steps[0]["question"] if cust_sess and cust_sess.steps else "Which cup size would you prefer today?"
+                    return f"Great choice! I've opened the {name}. {first_q}"
                 else:
+                    notes = ", ".join(prod.get("notes", []))
+                    notes_str = f" with tasting notes of {notes}" if notes else ""
                     return f"I've selected the {name}{notes_str}. Would you like to add it to your tray?"
 
             elif t_name == "customize_drink_tool":
@@ -354,6 +452,7 @@ class AgentRuntime:
         Retrieves session context, executes agent runtime, and formats response.
         """
         state = get_conversation_context(session_id)
+        state["session_id"] = session_id
         result = self.run(user_input=user_message, context=state)
 
         actions = []

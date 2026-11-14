@@ -219,6 +219,13 @@ class SessionLifecycleManager:
                 
                 # 2. Evict from active session store
                 del self._active_sessions[session_id]
+
+                # Evict active customization if any
+                try:
+                    from customization_engine import clear_customization_session
+                    clear_customization_session(session_id)
+                except Exception:
+                    pass
                 
                 # 3. Update metadata tombstone or remove
                 if session_id in self._session_meta:

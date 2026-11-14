@@ -174,3 +174,39 @@
   transform: scale(0.985);
   background-color: #131E2A;
 }
+
+/* =========================================================================
+   Smooth Customization Step Transition & Voice Confirmation Animations
+   ========================================================================= */
+
+.customization-step-content {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 250ms cubic-bezier(0.16, 1, 0.3, 1), transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.customization-step-content--fading-out {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+
+.customization-step-content--fading-in {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: none;
+}
+
+.customization-step-content--confirming {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customization-step-content {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+

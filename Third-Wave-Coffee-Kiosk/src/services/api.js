@@ -51,6 +51,41 @@ export async function updateScreenState({ sessionId, screen, category, productId
   }
 }
 
+export async function syncCustomizationState({
+  sessionId,
+  stepIndex,
+  size,
+  temperature,
+  strength,
+  milk,
+  sugar,
+  quantity,
+  pendingConfirmation,
+}) {
+  try {
+    const res = await fetch(`${BASE_URL}/customization/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        step_index: stepIndex,
+        size,
+        temperature,
+        strength,
+        milk,
+        sugar,
+        quantity,
+        pending_confirmation: pendingConfirmation,
+      }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('[TWC API] Could not sync customization state:', err);
+    return null;
+  }
+}
+
 export async function transcribeAudio(audioBlob, filename = 'speech.webm') {
   const formData = new FormData();
   formData.append('file', audioBlob, filename);

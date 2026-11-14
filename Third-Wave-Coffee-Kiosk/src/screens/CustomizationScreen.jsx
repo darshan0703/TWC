@@ -1,13 +1,16 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState, useRef, useCallback } from 'react';
 import './CustomizationScreen.css';
 import { KioskHeader } from '../components/KioskHeader';
 import { MilkVisualization, resolveMilkKey } from '../components/MilkVisualization';
 import { CUSTOMIZATION_OPTIONS, PASTRY_RECOMMENDATIONS, PRODUCTS } from '../data/products';
 import { useKiosk } from '../context/KioskContext';
+import { useVoiceBarista } from '../context/VoiceBaristaContext';
+import { syncCustomizationState } from '../services/api';
 import { Plus, Minus, Check, ArrowRight, Sparkles, ShoppingBag, RotateCcw } from 'lucide-react';
 
 export const CustomizationScreen = () => {
-  const { selectedProduct, addToCart, addDirectToCart, navigateTo } = useKiosk();
+  const { selectedProduct, addToCart, addDirectToCart, navigateTo, activeCustomization, syncCustomization } = useKiosk();
+  const { sessionId } = useVoiceBarista();
 
   // Fallback to Cappuccino if directly opened
   const product = selectedProduct || PRODUCTS.find(p => p.id === 'cappuccino') || PRODUCTS[1];
@@ -58,17 +61,126 @@ export const CustomizationScreen = () => {
     }
   ];
 
-  // Current Card Step Index: 0 to 3
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const activeStep = STEPS[currentStepIndex] || STEPS[0];
+  // Primary Customization State Bound to Canonical Context
+  const [displayedStepIndex, setDisplayedStepIndex] = useState(() => activeCustomization?.stepIndex ?? 0);
+  const [isConfirmedReview, setIsConfirmedReview] = useState(() => !!activeCustomization?.pendingConfirmation);
+  const [transitionPhase, setTransitionPhase] = useState('idle'); // 'idle' | 'holding' | 'fading_out' | 'fading_in'
 
-  // Customization Selections
-  const [size, setSize] = useState('Regular');
-  const [strength, setStrength] = useState('Double Shot');
-  const [milk, setMilk] = useState('Regular');
-  const [sugar, setSugar] = useState('Regular Sugar');
-  const [pourTrigger, setPourTrigger] = useState(0);
-  const [quantity, setQuantity] = useState(1);
+  const activeStep = STEPS[displayedStepIndex] || STEPS[0];
+
+  const size = activeCustomization?.size ?? 'Regular';
+  const strength = activeCustomization?.strength ?? 'Double Shot';
+  const milk = activeCustomization?.milk ?? 'Regular';
+  const sugar = activeCustomization?.sugar ?? 'Regular Sugar';
+  const pourTrigger = activeCustomization?.pourTrigger ?? 0;
+  const quantity = activeCustomization?.quantity ?? 1;
+
+  // Timers and mount tracking for controlled transitions
+  const holdTimerRef = useRef(null);
+  const fadeTimerRef = useRef(null);
+  const isMountedRef = useRef(true);
+  const lastProcessedVoiceTimestampRef = useRef(null);
+  const lastProductIdRef = useRef(product?.id);
+
+  const cancelPendingTransition = useCallback(() => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (fadeTimerRef.current) {
+      clearTimeout(fadeTimerRef.current);
+      fadeTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      cancelPendingTransition();
+    };
+  }, [cancelPendingTransition]);
+
+  // Cancel transitions if product changes
+  useEffect(() => {
+    if (product?.id && product.id !== lastProductIdRef.current) {
+      lastProductIdRef.current = product.id;
+      cancelPendingTransition();
+      setDisplayedStepIndex(activeCustomization?.stepIndex ?? 0);
+      setIsConfirmedReview(false);
+      setTransitionPhase('idle');
+    }
+  }, [product?.id, activeCustomization?.stepIndex, cancelPendingTransition]);
+
+  // Voice Selection Smooth Transition Coordination
+  // Phase 1: Option immediately lights up with selected state on the current question
+  // Phase 2: Confirmation hold (~800ms) keeps question visible and selected option readable
+  // Phase 3: Smooth fade out (250ms) -> update displayed step -> smooth fade in (250ms)
+  useEffect(() => {
+    const isVoice = !!activeCustomization?.isVoiceSelection;
+    const voiceTimestamp = activeCustomization?.voiceTimestamp;
+    const targetStepIndex = activeCustomization?.stepIndex ?? 0;
+    const isPendingConfirm = !!activeCustomization?.pendingConfirmation;
+
+    if (isVoice && voiceTimestamp && voiceTimestamp !== lastProcessedVoiceTimestampRef.current) {
+      lastProcessedVoiceTimestampRef.current = voiceTimestamp;
+
+      const shouldAdvanceStep = targetStepIndex !== displayedStepIndex;
+      const shouldTransitionToConfirm = isPendingConfirm && !isConfirmedReview;
+
+      if (shouldAdvanceStep || shouldTransitionToConfirm) {
+        cancelPendingTransition();
+        setTransitionPhase('holding');
+
+        const prefersReducedMotion = typeof window !== 'undefined' &&
+          window.matchMedia &&
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        const fadeDuration = prefersReducedMotion ? 0 : 250;
+        const holdDuration = 800;
+
+        holdTimerRef.current = setTimeout(() => {
+          if (!isMountedRef.current) return;
+          setTransitionPhase('fading_out');
+
+          fadeTimerRef.current = setTimeout(() => {
+            if (!isMountedRef.current) return;
+            setDisplayedStepIndex(targetStepIndex);
+            if (isPendingConfirm) {
+              setIsConfirmedReview(true);
+            }
+            setTransitionPhase('fading_in');
+
+            fadeTimerRef.current = setTimeout(() => {
+              if (!isMountedRef.current) return;
+              setTransitionPhase('idle');
+            }, fadeDuration);
+          }, fadeDuration);
+        }, holdDuration);
+      }
+    } else if (!isVoice) {
+      // Direct touch or programmatic synchronization when idle
+      if (activeCustomization?.stepIndex !== undefined &&
+          activeCustomization.stepIndex !== displayedStepIndex &&
+          transitionPhase === 'idle') {
+        setDisplayedStepIndex(activeCustomization.stepIndex);
+      }
+      if (activeCustomization?.pendingConfirmation !== undefined &&
+          activeCustomization.pendingConfirmation !== isConfirmedReview &&
+          transitionPhase === 'idle') {
+        setIsConfirmedReview(activeCustomization.pendingConfirmation);
+      }
+    }
+  }, [
+    activeCustomization?.isVoiceSelection,
+    activeCustomization?.voiceTimestamp,
+    activeCustomization?.stepIndex,
+    activeCustomization?.pendingConfirmation,
+    displayedStepIndex,
+    isConfirmedReview,
+    transitionPhase,
+    cancelPendingTransition,
+  ]);
 
   // Available Sizes: exact independent prices from photographs
   // If product does not list Large, never display an invented large option
@@ -88,9 +200,9 @@ export const CustomizationScreen = () => {
   // Reset size if current selection is not available for this product
   useEffect(() => {
     if (!availableSizes.find(s => s.id === size)) {
-      setSize('Regular');
+      syncCustomization({ size: 'Regular' });
     }
-  }, [availableSizes, size]);
+  }, [availableSizes, size, syncCustomization]);
 
   // Available Strengths
   const STRENGTH_OPTIONS = [
@@ -117,6 +229,148 @@ export const CustomizationScreen = () => {
   }, [product.price, product.largePrice, size, strength, milk]);
 
   const totalPrice = unitPrice * quantity;
+
+  // Sync touch selection changes to backend canonical session
+  const handleSelectSize = (newSize) => {
+    cancelPendingTransition();
+    setTransitionPhase('idle');
+    syncCustomization({ size: newSize, isVoiceSelection: false });
+    if (sessionId) {
+      syncCustomizationState({
+        sessionId,
+        stepIndex: displayedStepIndex,
+        size: newSize,
+        strength,
+        milk,
+        sugar,
+        quantity,
+      });
+    }
+  };
+
+  const handleSelectStrength = (newStrength) => {
+    cancelPendingTransition();
+    setTransitionPhase('idle');
+    syncCustomization({ strength: newStrength, isVoiceSelection: false });
+    if (sessionId) {
+      syncCustomizationState({
+        sessionId,
+        stepIndex: displayedStepIndex,
+        size,
+        strength: newStrength,
+        milk,
+        sugar,
+        quantity,
+      });
+    }
+  };
+
+  const handleSelectMilk = (newMilk) => {
+    cancelPendingTransition();
+    setTransitionPhase('idle');
+    syncCustomization({ milk: newMilk, isVoiceSelection: false });
+    if (sessionId) {
+      syncCustomizationState({
+        sessionId,
+        stepIndex: displayedStepIndex,
+        size,
+        strength,
+        milk: newMilk,
+        sugar,
+        quantity,
+      });
+    }
+  };
+
+  const handleSelectSugar = (newSugar) => {
+    cancelPendingTransition();
+    setTransitionPhase('idle');
+    syncCustomization({ sugar: newSugar, isVoiceSelection: false });
+    if (sessionId) {
+      syncCustomizationState({
+        sessionId,
+        stepIndex: displayedStepIndex,
+        size,
+        strength,
+        milk,
+        sugar: newSugar,
+        quantity,
+      });
+    }
+  };
+
+  const handleStepJump = (idx) => {
+    cancelPendingTransition();
+    setDisplayedStepIndex(idx);
+    setIsConfirmedReview(false);
+    setTransitionPhase('idle');
+    syncCustomization({ stepIndex: idx, isVoiceSelection: false });
+    if (sessionId) {
+      syncCustomizationState({
+        sessionId,
+        stepIndex: idx,
+        size,
+        strength,
+        milk,
+        sugar,
+        quantity,
+      });
+    }
+  };
+
+  const handleNextCard = () => {
+    cancelPendingTransition();
+    if (displayedStepIndex < STEPS.length - 1) {
+      const nextIdx = displayedStepIndex + 1;
+      setDisplayedStepIndex(nextIdx);
+      setIsConfirmedReview(false);
+      setTransitionPhase('idle');
+      syncCustomization({ stepIndex: nextIdx, isVoiceSelection: false });
+      if (sessionId) {
+        syncCustomizationState({
+          sessionId,
+          stepIndex: nextIdx,
+          size,
+          strength,
+          milk,
+          sugar,
+          quantity,
+        });
+      }
+    } else {
+      setIsConfirmedReview(true);
+      setTransitionPhase('idle');
+      syncCustomization({ pendingConfirmation: true, isVoiceSelection: false });
+      if (sessionId) {
+        syncCustomizationState({
+          sessionId,
+          stepIndex: displayedStepIndex,
+          size,
+          strength,
+          milk,
+          sugar,
+          quantity,
+          pendingConfirmation: true,
+        });
+      }
+    }
+  };
+
+  const handleQuantityChange = (newQty) => {
+    const safeQty = Math.max(1, newQty);
+    syncCustomization({ quantity: safeQty, isVoiceSelection: false });
+    if (sessionId) {
+      syncCustomizationState({
+        sessionId,
+        stepIndex: displayedStepIndex,
+        size,
+        strength,
+        milk,
+        sugar,
+        quantity: safeQty,
+      });
+    }
+  };
 
   // Handle Add to Cart
   const handleAddToCart = () => {
@@ -145,16 +399,6 @@ export const CustomizationScreen = () => {
 
     addToCart(configuredItem);
     navigateTo('menu');
-  };
-
-  // Advance to next step card
-  const handleNextCard = () => {
-    if (currentStepIndex < STEPS.length - 1) {
-      setCurrentStepIndex(prev => prev + 1);
-      setPourTrigger(prev => prev + 1);
-    } else {
-      setPourTrigger(prev => prev + 1);
-    }
   };
 
   return (
@@ -186,7 +430,7 @@ export const CustomizationScreen = () => {
           <MilkVisualization
             drinkStyle={isColdCoffee ? 'cold' : 'cappuccino'}
             stepKey={activeStep.key}
-            isReady={currentStepIndex === 3}
+            isReady={displayedStepIndex === 3 && isConfirmedReview}
             selectedMilk={milk}
             size={size}
             strength={strength}
@@ -216,14 +460,11 @@ export const CustomizationScreen = () => {
                     <button
                       key={st.key}
                       type="button"
-                      onClick={() => {
-                        setCurrentStepIndex(idx);
-                        setPourTrigger(p => p + 1);
-                      }}
+                      onClick={() => handleStepJump(idx)}
                       className={`h-2 rounded-full transition-all cursor-pointer ${
-                        currentStepIndex === idx
+                        displayedStepIndex === idx
                           ? 'w-6 bg-navy shadow-xs'
-                          : currentStepIndex > idx
+                          : displayedStepIndex > idx
                           ? 'w-2 bg-emerald-600'
                           : 'w-2 bg-beige-muted/70 hover:bg-beige-dark'
                       }`}
@@ -233,7 +474,19 @@ export const CustomizationScreen = () => {
                 </div>
               </div>
 
-              {/* Conversational AI Question */}
+              {/* Step Question and Options Body Wrapped for Smooth Transition */}
+              <div
+                className={`customization-step-content ${
+                  transitionPhase === 'fading_out'
+                    ? 'customization-step-content--fading-out'
+                    : transitionPhase === 'fading_in'
+                    ? 'customization-step-content--fading-in'
+                    : transitionPhase === 'holding'
+                    ? 'customization-step-content--confirming'
+                    : ''
+                }`}
+              >
+                {/* Conversational AI Question */}
               <div>
                 <h3 className="text-xs sm:text-sm font-black text-navy leading-snug">
                   {activeStep.question}
@@ -254,10 +507,7 @@ export const CustomizationScreen = () => {
                         <button
                           key={s.id}
                           type="button"
-                          onClick={() => {
-                            setSize(s.id);
-                            setPourTrigger(p => p + 1);
-                          }}
+                          onClick={() => handleSelectSize(s.id)}
                           className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer active:scale-98 ${
                             isSelected
                               ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
@@ -295,10 +545,7 @@ export const CustomizationScreen = () => {
                         <button
                           key={st.id}
                           type="button"
-                          onClick={() => {
-                            setStrength(st.id);
-                            setPourTrigger(p => p + 1);
-                          }}
+                          onClick={() => handleSelectStrength(st.id)}
                           className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer active:scale-98 ${
                             isSelected
                               ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
@@ -336,10 +583,7 @@ export const CustomizationScreen = () => {
                         <button
                           key={m.id}
                           type="button"
-                          onClick={() => {
-                            setMilk(m.id);
-                            setPourTrigger(p => p + 1);
-                          }}
+                          onClick={() => handleSelectMilk(m.id)}
                           className={`p-2 rounded-xl border-2 text-left transition-all cursor-pointer active:scale-98 ${
                             isSelected
                               ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
@@ -377,10 +621,7 @@ export const CustomizationScreen = () => {
                         <button
                           key={sug.id}
                           type="button"
-                          onClick={() => {
-                            setSugar(sug.label);
-                            setPourTrigger(p => p + 1);
-                          }}
+                          onClick={() => handleSelectSugar(sug.label)}
                           className={`p-2 rounded-xl border-2 text-center transition-all cursor-pointer active:scale-98 ${
                             isSelected
                               ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
@@ -399,16 +640,16 @@ export const CustomizationScreen = () => {
 
               {/* Continue / Next Button */}
               <div className="pt-0.5">
-                {currentStepIndex < 3 ? (
+                {displayedStepIndex < 3 ? (
                   <button
                     type="button"
                     onClick={handleNextCard}
                     className="w-full py-2.5 rounded-xl bg-navy text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm cursor-pointer hover:bg-navy-charcoal transition-all active:scale-99"
                   >
-                    <span>Continue to {STEPS[currentStepIndex + 1].label}</span>
+                    <span>Continue to {STEPS[displayedStepIndex + 1].label}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
-                ) : (
+                ) : isConfirmedReview ? (
                   <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
                     <span className="text-[10.5px] font-extrabold text-emerald-800 flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -416,17 +657,27 @@ export const CustomizationScreen = () => {
                     </span>
                     <button
                       type="button"
-                      onClick={() => setCurrentStepIndex(0)}
+                      onClick={() => handleStepJump(0)}
                       className="text-[10px] font-bold text-taupe-warm hover:text-navy cursor-pointer flex items-center gap-1"
                     >
                       <RotateCcw className="w-3 h-3" />
                       <span>Change</span>
                     </button>
                   </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleNextCard}
+                    className="w-full py-2.5 rounded-xl bg-navy text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm cursor-pointer hover:bg-navy-charcoal transition-all active:scale-99"
+                  >
+                    <span>Review Customisation</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
 
             </div>
+          </div>
 
             {/* EXISTING QUANTITY UI (Positioned inside the extended scene, directly below the card) */}
             <div className="bg-white/95 backdrop-blur-md rounded-xl p-2.5 px-3 border border-white/80 shadow-md flex items-center justify-between mt-2">
@@ -437,7 +688,7 @@ export const CustomizationScreen = () => {
               <div className="flex items-center gap-3 bg-cream-100 rounded-lg border border-beige-muted p-1">
                 <button
                   type="button"
-                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  onClick={() => handleQuantityChange(quantity - 1)}
                   disabled={quantity <= 1}
                   className="w-7 h-7 rounded-md bg-white text-navy flex items-center justify-center hover:bg-cream-200 disabled:opacity-40 transition-all active:scale-95 shadow-xs cursor-pointer"
                 >
@@ -450,7 +701,7 @@ export const CustomizationScreen = () => {
 
                 <button
                   type="button"
-                  onClick={() => setQuantity(q => q + 1)}
+                  onClick={() => handleQuantityChange(quantity + 1)}
                   className="w-7 h-7 rounded-md bg-white text-navy flex items-center justify-center hover:bg-cream-200 transition-all active:scale-95 shadow-xs cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />

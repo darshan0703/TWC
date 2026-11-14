@@ -41,6 +41,7 @@ def add_item_to_cart(
     milk: Optional[str] = None,
     sugar: Optional[str] = None,
     extra_shot: bool = False,
+    strength: Optional[str] = None,
     idempotency_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     with cart_lock:
@@ -65,6 +66,7 @@ def add_item_to_cart(
             milk=milk,
             sugar=sugar,
             extra_shot=extra_shot,
+            strength=strength,
             quantity=qty,
         )
 
@@ -77,6 +79,7 @@ def add_item_to_cart(
                 item.get("productId") == configured["productId"]
                 and item.get("size") == configured["size"]
                 and item.get("temperature") == configured["temperature"]
+                and item.get("strength") == configured.get("strength")
                 and item.get("milk") == configured["milk"]
                 and item.get("sugar") == configured["sugar"]
                 and item.get("extraShot") == configured["extraShot"]

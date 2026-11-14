@@ -153,23 +153,24 @@
       "subcategory": "coffee_classics",
       "badgeType": "popular",
       "badge": "Customer Favourite",
-      "price": 260,
+      "price": 265,
       "description": "Golden ratio of rich espresso, silky steamed whole milk, and dense microfoam dusted with roasted cocoa.",
       "image": "https://images.unsplash.com/photo-1534778101976-62847782c213?auto=format&fit=crop&w=800&q=80",
       "veg": true,
       "customizable": true,
-      "supportsTemperature": true,
+      "supportsTemperature": false,
       "defaultTemperature": "Hot",
       "calories": "120 kcal",
       "notes": [
         "Velvety Milk",
         "Nutty Undertones",
         "Cocoa Dust"
-      ]
+      ],
+      "largePrice": 305
     },
     {
       "id": "cafe_latte",
-      "name": "Café Latte",
+      "name": "Caf\u00e9 Latte",
       "mainCategory": "coffee",
       "subcategory": "coffee_classics",
       "badgeType": "popular",
@@ -1032,7 +1033,7 @@
       "badgeType": "premium",
       "badge": "Premium",
       "price": 360,
-      "description": "Sautéed wild shiitake and button mushrooms with black truffle butter and melted Gruyère on sourdough.",
+      "description": "Saut\u00e9ed wild shiitake and button mushrooms with black truffle butter and melted Gruy\u00e8re on sourdough.",
       "image": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=800&q=80",
       "veg": true,
       "customizable": false,
@@ -1552,18 +1553,18 @@
       "notes": [
         "French Butter",
         "Espresso Foam",
-        "Save ₹60"
+        "Save \u20b960"
       ]
     },
     {
       "id": "combo_latte_cookie",
-      "name": "Café Latte & Belgian Cookie Combo",
+      "name": "Caf\u00e9 Latte & Belgian Cookie Combo",
       "mainCategory": "specials",
       "subcategory": "spec_combos",
       "badgeType": "popular",
       "badge": "Customer Favourite",
       "price": 380,
-      "description": "Comforting double espresso Café Latte with an oversized warm Belgian 64% dark chocolate cookie.",
+      "description": "Comforting double espresso Caf\u00e9 Latte with an oversized warm Belgian 64% dark chocolate cookie.",
       "image": "https://images.unsplash.com/photo-1499636136210-6f4ee915583e?auto=format&fit=crop&w=800&q=80",
       "veg": true,
       "customizable": true,
@@ -1573,7 +1574,7 @@
       "notes": [
         "Silky Milk",
         "Molten Callebaut",
-        "Save ₹55"
+        "Save \u20b955"
       ]
     },
     {
@@ -1594,7 +1595,7 @@
       "notes": [
         "Condensed Milk",
         "Seeded Sourdough",
-        "Save ₹100"
+        "Save \u20b9100"
       ]
     },
     {
@@ -1615,7 +1616,7 @@
       "notes": [
         "Smooth 18-Hr Steep",
         "Spiced Cottage Cheese",
-        "Save ₹60"
+        "Save \u20b960"
       ]
     }
   ],
@@ -1638,7 +1639,7 @@
       {
         "id": "Hot",
         "label": "Hot",
-        "description": "Freshly steamed to 65°C"
+        "description": "Freshly steamed to 65\u00b0C"
       },
       {
         "id": "Iced",
@@ -1649,14 +1650,20 @@
     "milks": [
       {
         "id": "Regular",
-        "label": "Standard Dairy",
+        "label": "Regular Milk",
         "priceDiff": 0,
         "tag": "Included"
       },
       {
-        "id": "Oat",
-        "label": "Oat Milk",
-        "priceDiff": 45,
+        "id": "Skimmed",
+        "label": "Skimmed Milk",
+        "priceDiff": 0,
+        "tag": "Included"
+      },
+      {
+        "id": "Soy",
+        "label": "Soy Milk",
+        "priceDiff": 40,
         "tag": "Plant-Based"
       },
       {
@@ -1664,6 +1671,12 @@
         "label": "Almond Milk",
         "priceDiff": 45,
         "tag": "Nutty & Light"
+      },
+      {
+        "id": "Oat",
+        "label": "Oat Milk",
+        "priceDiff": 45,
+        "tag": "Barista Blend"
       }
     ],
     "sugar": [
@@ -1680,10 +1693,24 @@
       {
         "id": "Regular Sugar",
         "label": "Regular Sugar",
-        "desc": "Standard Café Recipe"
+        "desc": "Standard Caf\u00e9 Recipe"
       }
     ],
-    "extraShotPrice": 50
+    "extraShotPrice": 50,
+    "strengths": [
+      {
+        "id": "Single Shot",
+        "label": "Single Shot",
+        "desc": "Smooth & balanced Arabica",
+        "priceDiff": 0
+      },
+      {
+        "id": "Double Shot",
+        "label": "Double Shot",
+        "desc": "Bold crema punch",
+        "priceDiff": 50
+      }
+    ]
   },
   "PASTRY_RECOMMENDATIONS": [
     {

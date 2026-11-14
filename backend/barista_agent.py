@@ -57,11 +57,12 @@ COMMUNICATION PRINCIPLES:
 
 KNOWLEDGE OF THIRD WAVE COFFEE:
 - We serve 100% Arabica coffee, specialty roasted in small batches.
-- Milk options: Standard Dairy, Oat Milk (+₹45), Almond Milk (+₹45).
-- Sizes: Regular (240 ml) and Large (350 ml, +₹40).
-- Sweetness: No Sugar, Less Sugar (50%), Regular Sugar.
-- Extra Espresso Shot: +₹50.
-- Certain items do NOT support Iced (e.g. Flat White, Classic Espresso, Pour Overs). If a customer asks for iced Flat White, explain gently that flat whites are traditionally steamed hot to create velvety microfoam, and suggest our Iced Latte or Cold Brew instead.
+- Milk options: Regular Milk (+₹0), Skimmed Milk (+₹0), Soy Milk (+₹40), Almond Milk (+₹45), Oat Milk (+₹45).
+- Sizes: Regular (240 ml, +₹0) and Large (350 ml, +₹40).
+- Espresso Strength: Single Shot (+₹0) and Double Shot (+₹50).
+- Sweetness: No Sugar (+₹0), Less Sugar (+₹0), Regular Sugar (+₹0).
+- Hot-only drinks: Cappuccino, Flat White, Classic Espresso, and Manual Brews do NOT support Iced. Never ask about Hot or Iced for Cappuccino.
+- Customization Flow: Ask exactly one question at a time in order: 1. Cup Size -> 2. Strength -> 3. Milk -> 4. Sweetness. Acknowledge each selection with its exact price impact. Summarize and confirm before adding to tray.
 
 TOOL USAGE GUIDELINES:
 1. When customer names a drink to browse, select, or customize (e.g. "I want a flat white", "give me a cold brew", "show me latte", "select cappuccino"):
@@ -121,7 +122,10 @@ def build_barista_context(context: Dict[str, Any]) -> str:
     lines.append(f"Screen Objective: {guidance}")
 
     sel_prod = context.get("selected_product")
-    if sel_prod:
+    if isinstance(sel_prod, str):
+        sel_prod = get_product(sel_prod)
+
+    if isinstance(sel_prod, dict):
         customs = context.get("selected_customizations", {})
         lines.append(
             f"Active Focused Product on Customization Screen: {sel_prod.get('name')} (Base Price: ₹{sel_prod.get('price')})\n"
@@ -193,11 +197,23 @@ def create_barista_tools(context: Dict[str, Any]) -> List[Any]:
         context["selected_customizations"] = {
             "size": "Regular",
             "temperature": product.get("defaultTemperature", "Hot"),
-            "milk": "Standard Dairy" if product.get("customizable") else "None",
+            "strength": "Double Shot" if product.get("mainCategory") == "coffee" else "Single Shot",
+            "milk": "Regular Milk" if product.get("customizable") else "None",
             "sugar": "Regular Sugar" if product.get("customizable") else "Standard",
-            "extra_shot": False,
+            "extra_shot": (product.get("mainCategory") == "coffee"),
             "quantity": max(1, quantity),
         }
+
+        # Start customization session for sequential voice experience
+        sess_id = context.get("session_id", "default-session")
+        ui_customization = {}
+        if product.get("customizable", True):
+            try:
+                from customization_engine import start_customization_session
+            except ImportError:
+                from backend.customization_engine import start_customization_session
+            cust_sess = start_customization_session(sess_id, product, max(1, quantity))
+            ui_customization = cust_sess.get_ui_payload()
 
         return {
             "success": True,
@@ -213,6 +229,8 @@ def create_barista_tools(context: Dict[str, Any]) -> List[Any]:
                 "notes": product.get("notes", []),
             },
             "customizations": context["selected_customizations"],
+            "customization_payload": ui_customization,
+            "step_index": 0,
             "screen": "customization",
             "ui_action": "open_customization",
         }
@@ -237,6 +255,8 @@ def create_barista_tools(context: Dict[str, Any]) -> List[Any]:
         - quantity: integer count
         """
         product = context.get("selected_product")
+        if isinstance(product, str):
+            product = get_product(product)
         if not product and context.get("last_item"):
             p_obj = get_product(context["last_item"])
             if p_obj:
@@ -316,13 +336,15 @@ def create_barista_tools(context: Dict[str, Any]) -> List[Any]:
         target_name = product_name
         is_new_item = False
         sel = context.get("selected_product")
-        if target_name and sel:
+        if isinstance(sel, str):
+            sel = get_product(sel)
+        if target_name and isinstance(sel, dict):
             sel_name = sel.get("name", "").lower()
             if target_name.lower() not in sel_name and sel_name not in target_name.lower():
                 is_new_item = True
 
         if not target_name:
-            if sel:
+            if isinstance(sel, dict):
                 target_name = sel.get("name")
             elif context.get("last_item"):
                 target_name = context.get("last_item")

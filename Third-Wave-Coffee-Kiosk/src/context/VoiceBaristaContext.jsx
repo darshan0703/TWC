@@ -14,7 +14,12 @@ import {
   stopRecording,
   playAudioBlob,
   stopSpeaking,
+  prepareVoiceInput,
+  setInterruptionHandler,
+  startInterruptionDetection,
+  isSpeaking,
 } from '../services/voiceService';
+import { logVoiceEvent } from '../services/voice/voiceLogger';
 
 const VoiceBaristaContext = createContext(null);
 
@@ -86,7 +91,13 @@ export const VoiceBaristaProvider = ({ children }) => {
   const kiosk = useKiosk();
 
   // Voice Interaction States: 'idle' | 'listening' | 'processing' | 'speaking' | 'error'
-  const [voiceState, setVoiceState] = useState('idle');
+  const [voiceState, _setVoiceState] = useState('idle');
+  const voiceStateRef = useRef('idle');
+
+  const setVoiceState = useCallback((newState) => {
+    voiceStateRef.current = newState;
+    _setVoiceState(newState);
+  }, []);
   const [sessionActive, setSessionActive] = useState(false);
   const [hasGreeted, setHasGreeted] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -100,6 +111,8 @@ export const VoiceBaristaProvider = ({ children }) => {
   const activeSessionIdRef = useRef(null);
   const prevScreenRef = useRef(kiosk.currentScreen);
   const handleStopListeningRef = useRef(null);
+  const handleStartListeningRef = useRef(null);
+  const processCustomerMessageRef = useRef(null);
   const isAwaitingConfirmationRef = useRef(false);
   isAwaitingConfirmationRef.current = isAwaitingConfirmation;
   activeSessionIdRef.current = sessionId;
@@ -145,6 +158,12 @@ export const VoiceBaristaProvider = ({ children }) => {
 
     // 1. Specific UI Actions
     for (const act of actions) {
+      logVoiceEvent('AGENT_ACTION_EXECUTED', {
+        ui_action: act.ui_action,
+        product: act.product?.id || act.product_id,
+        screen: act.screen,
+      });
+
       if (act.ui_action === 'await_number_confirmation') {
         setIsAwaitingConfirmation(true);
         if (act.mobile_number) {
@@ -161,7 +180,39 @@ export const VoiceBaristaProvider = ({ children }) => {
         kiosk.setMobileNumber('');
       } else if (act.ui_action === 'open_customization' && act.product) {
         const prod = PRODUCTS.find((p) => p.id === act.product.id) || act.product;
-        kiosk.openCustomization(prod);
+        kiosk.openCustomization(prod, act.step_index || 0);
+        if (act.customization_payload) {
+          kiosk.syncCustomization({
+            stepIndex: act.customization_payload.step_index || 0,
+            size: act.customization_payload.size,
+            strength: act.customization_payload.strength,
+            milk: act.customization_payload.milk,
+            sugar: act.customization_payload.sugar,
+            unitPrice: act.customization_payload.unit_price,
+            totalPrice: act.customization_payload.total_price,
+            pendingConfirmation: act.customization_payload.pending_confirmation,
+            isVoiceSelection: false,
+          });
+        }
+      } else if (act.ui_action === 'update_customization') {
+        kiosk.syncCustomization({
+          stepIndex: act.step_index !== undefined ? act.step_index : 0,
+          size: act.size,
+          strength: act.strength,
+          milk: act.milk,
+          sugar: act.sugar,
+          unitPrice: act.unit_price,
+          totalPrice: act.total_price,
+          pendingConfirmation: act.pending_confirmation,
+          quantity: act.quantity || 1,
+          isVoiceSelection: true,
+          voiceTimestamp: Date.now(),
+        });
+      } else if (act.ui_action === 'add_to_cart') {
+        if (act.item) {
+          kiosk.addToCart(act.item);
+        }
+        kiosk.navigateTo('menu');
       } else if (act.ui_action === 'open_category' && act.category) {
         kiosk.openCategory(act.category, act.subcategory);
       } else if (act.ui_action === 'navigate' && act.screen) {
@@ -189,13 +240,14 @@ export const VoiceBaristaProvider = ({ children }) => {
   }, [kiosk]);
 
   // Start recording speech with state transition and live interim transcript hooks
-  const handleStartListening = useCallback(async () => {
+  const handleStartListening = useCallback(async ({ isBargeIn = false } = {}) => {
     try {
       stopSpeaking();
       setErrorMessage(null);
       setTranscript('');
       setVoiceState('listening');
       await startRecording({
+        isBargeIn,
         onInterim: (liveTranscript) => {
           setTranscript(liveTranscript);
           // Progressively update digits on mobile number screen during active speech
@@ -207,7 +259,19 @@ export const VoiceBaristaProvider = ({ children }) => {
           }
         },
         onSilence: () => {
-          handleStopListeningRef.current?.();
+          if (voiceStateRef.current === 'listening') {
+            setVoiceState('idle');
+            setErrorMessage(null);
+          }
+        },
+        onFinal: async (finalSpokenText) => {
+          if (!finalSpokenText || !finalSpokenText.trim()) {
+            setVoiceState('idle');
+            setErrorMessage(null);
+            return;
+          }
+          setTranscript(finalSpokenText);
+          await processCustomerMessageRef.current?.(finalSpokenText);
         },
       });
     } catch (err) {
@@ -215,7 +279,9 @@ export const VoiceBaristaProvider = ({ children }) => {
       setErrorMessage('Microphone access denied. Please allow microphone permissions.');
       setVoiceState('error');
     }
-  }, [kiosk]);
+  }, [kiosk, setVoiceState]);
+
+  handleStartListeningRef.current = handleStartListening;
 
   // Dispatch message to Conversational Agent and play spoken audio
   const processCustomerMessage = useCallback(async (customerText) => {
@@ -235,13 +301,37 @@ export const VoiceBaristaProvider = ({ children }) => {
     }
 
     const requestSessionId = sessionId;
+    const requestStart = performance.now();
+
+    logVoiceEvent('COMMAND_SUBMISSION_STARTED', {
+      transcript: customerText,
+      sessionId: requestSessionId,
+      screen: kiosk.currentScreen,
+    });
+
     try {
+      logVoiceEvent('COMMAND_SENT_TO_BACKEND', {
+        endpoint: '/message',
+        message: customerText,
+        screen: kiosk.currentScreen,
+        sessionId: requestSessionId,
+      });
+
       const resp = await sendMessage({
         sessionId: requestSessionId,
         message: customerText,
         currentScreen: kiosk.currentScreen,
         selectedCategory: kiosk.selectedMainCategory,
         selectedProductId: kiosk.selectedProduct?.id,
+      });
+
+      const durationMs = Math.round(performance.now() - requestStart);
+
+      logVoiceEvent('BACKEND_RESPONSE_RECEIVED', {
+        durationMs,
+        replyPreview: (resp?.response || '').slice(0, 60),
+        activeScreen: resp?.active_screen,
+        actionsCount: resp?.actions?.length || 0,
       });
 
       // Strict race & stale guards: discard if turn advanced or session changed
@@ -259,6 +349,12 @@ export const VoiceBaristaProvider = ({ children }) => {
       // Synthesize and play Kokoro TTS
       const speakText = resp.speakable_response || replyText;
       try {
+        logVoiceEvent('NEW_TTS_STARTED', {
+          textLength: speakText.length,
+          preview: speakText.slice(0, 60),
+        });
+
+        startInterruptionDetection();
         const audioBlob = await fetchTTSAudio(speakText);
         if (currentTurn !== activeTurnIdRef.current) return;
 
@@ -274,7 +370,7 @@ export const VoiceBaristaProvider = ({ children }) => {
                 setVoiceState('idle');
                 setErrorMessage(null);
               } else {
-                handleStartListening();
+                handleStartListeningRef.current?.({ isBargeIn: false });
               }
             }
           },
@@ -289,7 +385,7 @@ export const VoiceBaristaProvider = ({ children }) => {
           setVoiceState('idle');
           setErrorMessage(null);
         } else {
-          handleStartListening();
+          handleStartListeningRef.current?.({ isBargeIn: false });
         }
       }
     } catch (err) {
@@ -297,39 +393,26 @@ export const VoiceBaristaProvider = ({ children }) => {
       setErrorMessage("Sorry, I had trouble processing that. Please tap the mic to try again!");
       setVoiceState('error');
     }
-  }, [sessionId, kiosk, handleAssistantActions, handleStartListening]);
+  }, [sessionId, kiosk, handleAssistantActions, setVoiceState]);
 
-  // Stop recording, transcribe via live SpeechRecognition or Whisper, and process
+  processCustomerMessageRef.current = processCustomerMessage;
+
+  // Stop recording, delegate to voiceService onFinal handler
   const handleStopListening = useCallback(async () => {
-    if (voiceState !== 'listening') return;
+    if (voiceStateRef.current !== 'listening') {
+      console.log('[VoiceBarista] Skipping stop listening: voiceState is', voiceStateRef.current);
+      return;
+    }
 
     setVoiceState('processing');
     try {
-      const recordResult = await stopRecording();
-      let spokenText = (recordResult?.transcript || '').trim();
-
-      // If live SpeechRecognition didn't produce text, fallback to Whisper STT
-      if (!spokenText && recordResult?.blob && recordResult.blob.size > 0) {
-        const stt = await transcribeAudio(recordResult.blob);
-        if (stt && stt.success && stt.text && stt.text.trim()) {
-          spokenText = stt.text.trim();
-        }
-      }
-
-      if (!spokenText) {
-        setVoiceState('idle');
-        setErrorMessage(null);
-        return;
-      }
-
-      setTranscript(spokenText);
-      await processCustomerMessage(spokenText);
+      await stopRecording();
     } catch (err) {
-      console.error('[VoiceBarista] STT Error:', err);
+      console.error('[VoiceBarista] Stop listening error:', err);
       setErrorMessage('Could not recognize speech. Tap mic to try again.');
       setVoiceState('error');
     }
-  }, [voiceState, processCustomerMessage]);
+  }, [setVoiceState]);
 
   handleStopListeningRef.current = handleStopListening;
 
@@ -384,6 +467,14 @@ export const VoiceBaristaProvider = ({ children }) => {
     setIsAwaitingConfirmation(false);
 
     try {
+      // Warm up microphone, analyser, and calibrate noise floor before playing greeting
+      // so barge-in interruption detection is fully active from the first word
+      await prepareVoiceInput();
+      if (currentTurn !== activeTurnIdRef.current) return;
+
+      // Arm interruption detection immediately so customer can interrupt greeting even while generating
+      startInterruptionDetection();
+
       // Synthesize and play initial welcoming greeting
       const audioBlob = await fetchTTSAudio(DEFAULT_GREETING);
       if (currentTurn !== activeTurnIdRef.current) return;
@@ -398,14 +489,14 @@ export const VoiceBaristaProvider = ({ children }) => {
           if (currentTurn === activeTurnIdRef.current) {
             setHasGreeted(true);
             // Speech recognition starts ONLY after greeting has finished speaking
-            handleStartListening();
+            handleStartListeningRef.current?.({ isBargeIn: false });
           }
         },
         onError: (err) => {
           console.warn('[VoiceBarista] Greeting audio error:', err);
           if (currentTurn === activeTurnIdRef.current) {
             setHasGreeted(true);
-            handleStartListening();
+            handleStartListeningRef.current?.({ isBargeIn: false });
           }
         },
       });
@@ -413,10 +504,10 @@ export const VoiceBaristaProvider = ({ children }) => {
       console.warn('[VoiceBarista] Could not play greeting audio, starting listener:', err);
       if (currentTurn === activeTurnIdRef.current) {
         setHasGreeted(true);
-        handleStartListening();
+        handleStartListeningRef.current?.({ isBargeIn: false });
       }
     }
-  }, [handleStartListening]);
+  }, []);
 
   // Stop listening when navigating away or ending session
   useEffect(() => {
@@ -476,8 +567,28 @@ export const VoiceBaristaProvider = ({ children }) => {
     }
   }, [kiosk.currentScreen, kiosk.selectedMainCategory, kiosk.selectedProduct, sessionId, voiceState]);
 
-  // Instant interruption / barge-in
+  // Natural Voice Interruption (Barge-In) Event Listener
+  useEffect(() => {
+    setInterruptionHandler(() => {
+      console.log('[VoiceBarista] Natural voice barge-in detected: customer interrupted cashier!');
+      // Invalidate active turn so any pending audio playback callbacks do not execute
+      activeTurnIdRef.current++;
+      // Instantly stop Kokoro audio playback
+      stopSpeaking();
+      // Transition state to listening
+      setVoiceState('listening');
+      // Begin capturing customer's new speech command immediately
+      handleStartListeningRef.current?.({ isBargeIn: true });
+    });
+
+    return () => {
+      setInterruptionHandler(null);
+    };
+  }, [setVoiceState]);
+
+  // Instant manual/touch interruption / barge-in
   const handleInterruptSpeaking = useCallback(() => {
+    activeTurnIdRef.current++;
     stopSpeaking();
     setVoiceState('idle');
   }, []);
@@ -520,6 +631,21 @@ export const VoiceBaristaProvider = ({ children }) => {
     setTranscript(text);
     await processCustomerMessage(text);
   }, [processCustomerMessage]);
+
+  useEffect(() => {
+    const handleTestCommand = (e) => {
+      const text = e?.detail?.text;
+      if (text) {
+        handleSendText(text);
+      }
+    };
+    window.addEventListener('twc:voice-test-command', handleTestCommand);
+    window.__TWC_SUBMIT_TEST_VOICE__ = handleSendText;
+    return () => {
+      window.removeEventListener('twc:voice-test-command', handleTestCommand);
+      delete window.__TWC_SUBMIT_TEST_VOICE__;
+    };
+  }, [handleSendText]);
 
   const value = {
     voiceState,

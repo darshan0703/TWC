@@ -98,6 +98,17 @@ class OrderConfirmRequest(BaseModel):
     session_id: str
     order_type: Optional[str] = "DINE_IN"
 
+class CustomizationSyncRequest(BaseModel):
+    session_id: str
+    step_index: Optional[int] = None
+    size: Optional[str] = None
+    temperature: Optional[str] = None
+    strength: Optional[str] = None
+    milk: Optional[str] = None
+    sugar: Optional[str] = None
+    quantity: Optional[int] = 1
+    pending_confirmation: Optional[bool] = False
+
 # -------------------------------------------------------------
 # Core API Endpoints
 # -------------------------------------------------------------
@@ -213,6 +224,54 @@ def update_screen(req: ScreenUpdateRequest):
         "page_prompt": prompt,
         "speakable_prompt": audio_service.clean_text_for_speech(prompt),
     }
+
+@app.post("/customization/sync")
+def sync_customization(req: CustomizationSyncRequest):
+    """
+    Synchronizes touch screen customization changes with backend canonical state.
+    Called when a user taps a card option or step dot on the kiosk touch interface.
+    """
+    session_id = req.session_id
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+
+    state = state_manager.get_session(session_id)
+    session_lifecycle.touch_session(session_id)
+
+    try:
+        from customization_engine import get_customization_session, start_customization_session
+    except ImportError:
+        from backend.customization_engine import get_customization_session, start_customization_session
+
+    cust_sess = get_customization_session(session_id)
+    if not cust_sess and state.get("selected_product"):
+        prod = state["selected_product"]
+        if isinstance(prod, str):
+            prod = catalog.get_product(prod)
+        if prod:
+            cust_sess = start_customization_session(session_id, prod, req.quantity or 1)
+
+    if cust_sess:
+        cust_sess.sync_from_touch(req.model_dump(exclude_unset=True) if hasattr(req, "model_dump") else req.dict(exclude_unset=True))
+        payload = cust_sess.get_ui_payload()
+
+        state_manager.update_customization_state(
+            session_id=session_id,
+            size=payload.get("size"),
+            temperature=payload.get("temperature"),
+            strength=payload.get("strength"),
+            milk=payload.get("milk"),
+            sugar=payload.get("sugar"),
+            extra_shot=(payload.get("strength") == "Double Shot"),
+            quantity=payload.get("quantity", 1),
+        )
+
+        return {
+            "success": True,
+            "customization": payload
+        }
+
+    return {"success": False, "message": "No active customization session found"}
 
 @app.post("/session/phone")
 def set_customer_phone(req: CustomerPhoneRequest):

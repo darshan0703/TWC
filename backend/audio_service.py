@@ -30,6 +30,14 @@ WHISPER_MODEL_NAME = os.getenv("WHISPER_MODEL", "small.en")
 KOKORO_LANG_CODE = os.getenv("KOKORO_LANG", "a")
 KOKORO_DEFAULT_VOICE = os.getenv("KOKORO_VOICE", "af_heart")
 
+COFFEE_KIOSK_PROMPT = (
+    "Third Wave Coffee kiosk ordering menu: Cappuccino, Signature Cappuccino, Latte, Flat White, "
+    "Americano, Mocha, Espresso, Cold Brew, Croissant, Pastry, Bagel, Panini, Sourdough, Toast. "
+    "Customizations: Oat milk, Almond milk, Soy milk, Whole milk, Regular milk, Skimmed milk, "
+    "Sweetness: Regular Sugar, Less Sugar, No Sugar, Sugar-free, Vanilla syrup, Hazelnut, Caramel, "
+    "Cup size: Large, Regular, Small. Temperature: Hot, Iced. Extra shot, Double shot, Dine in, Takeaway."
+)
+
 class AudioService:
     def __init__(self):
         self._whisper_model = None
@@ -141,11 +149,14 @@ class AudioService:
                 if not wav_file.exists() or wav_file.stat().st_size == 0:
                     return {"success": False, "message": "WAV file was not generated"}
 
-                # Run Whisper transcription
+                # Run Whisper transcription with domain prompt conditioning and greedy decoding
                 result = model.transcribe(
                     str(wav_file),
                     language="en",
                     fp16=False,
+                    initial_prompt=COFFEE_KIOSK_PROMPT,
+                    condition_on_previous_text=False,
+                    temperature=0.0,
                 )
                 transcript = result.get("text", "").strip()
                 return {

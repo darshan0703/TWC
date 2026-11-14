@@ -207,8 +207,55 @@ export const KioskProvider = ({ children }) => {
   const activeCategory = selectedSubcategory;
   const setActiveCategory = setSelectedSubcategory;
 
-  const openCustomization = useCallback((product) => {
+  // Shared Customization State across Voice and Touch
+  const [activeCustomization, setActiveCustomization] = useState({
+    stepIndex: 0,
+    size: 'Regular',
+    strength: 'Double Shot',
+    milk: 'Regular',
+    sugar: 'Regular Sugar',
+    quantity: 1,
+    unitPrice: 0,
+    totalPrice: 0,
+    pendingConfirmation: false,
+    pourTrigger: 0,
+    isVoiceSelection: false,
+    voiceTimestamp: null,
+  });
+
+  const syncCustomization = useCallback((patch) => {
+    setActiveCustomization(prev => {
+      const stepChanged = patch.stepIndex !== undefined && patch.stepIndex !== prev.stepIndex;
+      const optionChanged = 
+        (patch.size && patch.size !== prev.size) ||
+        (patch.strength && patch.strength !== prev.strength) ||
+        (patch.milk && patch.milk !== prev.milk) ||
+        (patch.sugar && patch.sugar !== prev.sugar);
+      
+      return {
+        ...prev,
+        ...patch,
+        pourTrigger: (stepChanged || optionChanged) ? prev.pourTrigger + 1 : prev.pourTrigger
+      };
+    });
+  }, []);
+
+  const openCustomization = useCallback((product, initialStep = 0) => {
     setSelectedProduct(product);
+    setActiveCustomization({
+      stepIndex: initialStep,
+      size: 'Regular',
+      strength: product.mainCategory === 'coffee' ? 'Double Shot' : 'Single Shot',
+      milk: 'Regular',
+      sugar: 'Regular Sugar',
+      quantity: 1,
+      unitPrice: product.price,
+      totalPrice: product.price,
+      pendingConfirmation: false,
+      pourTrigger: 1,
+      isVoiceSelection: false,
+      voiceTimestamp: null,
+    });
     navigateTo('/customization');
   }, [navigateTo]);
 
@@ -424,6 +471,8 @@ export const KioskProvider = ({ children }) => {
         selectedProduct,
         setSelectedProduct,
         openCustomization,
+        activeCustomization,
+        syncCustomization,
         cart,
         setCart,
         addToCart,

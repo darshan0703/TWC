@@ -33,11 +33,26 @@ class UIState:
 
     @property
     def focused_product_id(self) -> Optional[str]:
-        return self._data.get("selected_product")
+        val = self._data.get("selected_product")
+        if isinstance(val, dict):
+            return val.get("id")
+        return val
 
     @focused_product_id.setter
-    def focused_product_id(self, val: Optional[str]):
-        self._data["selected_product"] = val
+    def focused_product_id(self, val: Optional[Any]):
+        if not val:
+            self._data["selected_product"] = None
+        elif isinstance(val, dict):
+            self._data["selected_product"] = val
+        elif isinstance(val, str):
+            try:
+                from catalog import get_product
+            except ImportError:
+                from backend.catalog import get_product
+            prod = get_product(val)
+            self._data["selected_product"] = prod if prod is not None else val
+        else:
+            self._data["selected_product"] = val
 
 
 class MemoryState:
@@ -222,6 +237,36 @@ class StateManager:
             state.ui.selected_category = selected_category
         if focused_product_id is not None:
             state.ui.focused_product_id = focused_product_id
+        session_lifecycle.touch_session(session_id)
+        return state
+
+    def update_customization_state(
+        self,
+        session_id: str,
+        size: Optional[str] = None,
+        temperature: Optional[str] = None,
+        strength: Optional[str] = None,
+        milk: Optional[str] = None,
+        sugar: Optional[str] = None,
+        extra_shot: Optional[bool] = None,
+        quantity: Optional[int] = None,
+    ) -> SessionState:
+        state = self.get_session(session_id)
+        customs = state.setdefault("selected_customizations", {})
+        if size:
+            customs["size"] = size
+        if temperature:
+            customs["temperature"] = temperature
+        if strength:
+            customs["strength"] = strength
+        if milk:
+            customs["milk"] = milk
+        if sugar:
+            customs["sugar"] = sugar
+        if extra_shot is not None:
+            customs["extra_shot"] = extra_shot
+        if quantity:
+            customs["quantity"] = max(1, quantity)
         session_lifecycle.touch_session(session_id)
         return state
 

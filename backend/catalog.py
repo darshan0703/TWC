@@ -195,25 +195,40 @@ def get_products_by_subcategory(subcategory_id: str) -> List[Dict[str, Any]]:
 
 def calculate_customized_price(
     product: Dict[str, Any],
-    size: str = "Regular",
-    milk: str = "Standard Dairy",
+    size: Optional[str] = "Regular",
+    milk: Optional[str] = "Regular Milk",
     extra_shot: bool = False,
+    strength: Optional[str] = None,
 ) -> int:
     """Calculates deterministic unit price for a configured TWC item."""
     base = int(product.get("price", 0))
 
-    # Size: Large is +40
-    if size and size.lower() == "large":
-        base += 40
+    # Size: Large is +40 (or largePrice - price if specified)
+    if size and "large" in size.lower():
+        if product.get("largePrice") is not None and product["largePrice"] > product.get("price", 0):
+            base += (product["largePrice"] - product.get("price", 0))
+        else:
+            base += 40
 
-    # Milk: Oat or Almond is +45
-    milk_clean = (milk or "").lower()
-    if "oat" in milk_clean or "almond" in milk_clean:
-        base += 45
-
-    # Extra espresso shot: +50
-    if extra_shot:
+    # Espresso Strength / Extra Shot:
+    # Double Shot is +50; Single Shot is +0
+    if strength:
+        s_clean = strength.lower()
+        if "double" in s_clean or "extra" in s_clean or "bold" in s_clean:
+            base += 50
+    elif extra_shot:
         base += 50
+
+    # Milk:
+    # Soy Milk: +40
+    # Oat Milk / Almond Milk: +45
+    # Regular Milk / Skimmed Milk: +0
+    if milk:
+        m_clean = milk.lower()
+        if "soy" in m_clean:
+            base += 40
+        elif "oat" in m_clean or "almond" in m_clean:
+            base += 45
 
     return base
 
@@ -225,11 +240,15 @@ def validate_and_configure_item(
     milk: Optional[str] = None,
     sugar: Optional[str] = None,
     extra_shot: bool = False,
+    strength: Optional[str] = None,
     quantity: int = 1,
 ) -> Dict[str, Any]:
     """
     Validates and formats a complete customized item adhering to TWC business rules.
     """
+    is_customizable = product.get("customizable", True)
+    is_coffee = product.get("mainCategory") == "coffee"
+
     # 1. Size
     canonical_size = "Large" if (size and "large" in size.lower()) else "Regular"
 
@@ -246,8 +265,24 @@ def validate_and_configure_item(
         else:
             canonical_temp = default_temp
 
-    # 3. Milk validation
-    is_customizable = product.get("customizable", True)
+    # 3. Strength validation
+    if strength:
+        s_lower = strength.lower()
+        if "single" in s_lower or "mild" in s_lower or "one" in s_lower:
+            canonical_strength = "Single Shot"
+            has_extra_shot = False
+        else:
+            canonical_strength = "Double Shot"
+            has_extra_shot = True
+    elif extra_shot:
+        canonical_strength = "Double Shot"
+        has_extra_shot = True
+    else:
+        # Default for coffee is Double Shot as per touch screen configuration
+        canonical_strength = "Double Shot" if is_coffee else "Single Shot"
+        has_extra_shot = (canonical_strength == "Double Shot")
+
+    # 4. Milk validation
     if not is_customizable:
         canonical_milk = "None"
     else:
@@ -256,17 +291,23 @@ def validate_and_configure_item(
             canonical_milk = "Oat Milk"
         elif "almond" in milk_lower:
             canonical_milk = "Almond Milk"
+        elif "soy" in milk_lower:
+            canonical_milk = "Soy Milk"
+        elif "skim" in milk_lower:
+            canonical_milk = "Skimmed Milk"
+        elif "dairy" in milk_lower or "standard" in milk_lower or "whole" in milk_lower:
+            canonical_milk = "Regular Milk"
         else:
-            canonical_milk = "Standard Dairy"
+            canonical_milk = "Regular Milk"
 
-    # 4. Sugar validation
+    # 5. Sugar validation
     if not is_customizable:
         canonical_sugar = "Standard"
     else:
         sugar_lower = (sugar or "").lower()
-        if "no" in sugar_lower or "zero" in sugar_lower or "without" in sugar_lower:
+        if "no" in sugar_lower or "zero" in sugar_lower or "without" in sugar_lower or "none" in sugar_lower:
             canonical_sugar = "No Sugar"
-        elif "less" in sugar_lower or "half" in sugar_lower or "50" in sugar_lower:
+        elif "less" in sugar_lower or "half" in sugar_lower or "50" in sugar_lower or "little" in sugar_lower:
             canonical_sugar = "Less Sugar"
         else:
             canonical_sugar = "Regular Sugar"
@@ -275,16 +316,17 @@ def validate_and_configure_item(
         product,
         size=canonical_size,
         milk=canonical_milk,
-        extra_shot=extra_shot,
+        extra_shot=has_extra_shot,
+        strength=canonical_strength,
     )
     total_price = unit_price * max(1, quantity)
 
     summary = [
         f"{canonical_size} ({'350 ml' if canonical_size == 'Large' else '240 ml'})" if is_customizable else None,
         canonical_temp if (supports_temp and is_customizable) else None,
+        canonical_strength if (is_coffee and is_customizable) else None,
         canonical_milk if is_customizable and canonical_milk != "None" else None,
         canonical_sugar if is_customizable and canonical_sugar != "Standard" else None,
-        "+1 Espresso Shot" if (is_customizable and extra_shot) else None,
     ]
     customizations_summary = [s for s in summary if s is not None]
 
@@ -296,9 +338,10 @@ def validate_and_configure_item(
         "quantity": max(1, quantity),
         "size": canonical_size,
         "temperature": canonical_temp,
+        "strength": canonical_strength,
         "milk": canonical_milk,
         "sugar": canonical_sugar,
-        "extraShot": bool(extra_shot),
+        "extraShot": bool(has_extra_shot),
         "totalPrice": total_price,
         "customizationsSummary": customizations_summary,
     }
@@ -332,11 +375,11 @@ class TWCCatalog:
     def get_products_by_subcategory(self, subcategory_id: str) -> List[Dict[str, Any]]:
         return get_products_by_subcategory(subcategory_id)
 
-    def calculate_customized_price(self, product: Dict[str, Any], size: str = "Regular", milk: str = "Standard Dairy", extra_shot: bool = False) -> int:
-        return calculate_customized_price(product, size, milk, extra_shot)
+    def calculate_customized_price(self, product: Dict[str, Any], size: str = "Regular", milk: str = "Regular Milk", extra_shot: bool = False, strength: Optional[str] = None) -> int:
+        return calculate_customized_price(product, size, milk, extra_shot, strength)
 
-    def validate_and_configure_item(self, product: Dict[str, Any], size: Optional[str] = None, temperature: Optional[str] = None, milk: Optional[str] = None, sugar: Optional[str] = None, extra_shot: bool = False, quantity: int = 1) -> Dict[str, Any]:
-        return validate_and_configure_item(product, size, temperature, milk, sugar, extra_shot, quantity)
+    def validate_and_configure_item(self, product: Dict[str, Any], size: Optional[str] = None, temperature: Optional[str] = None, milk: Optional[str] = None, sugar: Optional[str] = None, extra_shot: bool = False, strength: Optional[str] = None, quantity: int = 1) -> Dict[str, Any]:
+        return validate_and_configure_item(product, size, temperature, milk, sugar, extra_shot, strength, quantity)
 
 
 catalog = TWCCatalog()

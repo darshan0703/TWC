@@ -112,6 +112,17 @@ class FallbackToolBinding:
         return self.parent._invoke_with_fallback(messages, tools=self.tools, **combined_kwargs)
 
 
+class FallbackStructuredBinding:
+    def __init__(self, schema: Any, parent: "ModelAdapter", **kwargs: Any):
+        self.schema = schema
+        self.parent = parent
+        self.kwargs = kwargs
+
+    def invoke(self, messages: Any, **kwargs: Any) -> Any:
+        combined_kwargs = {**self.kwargs, **kwargs}
+        return self.parent._invoke_structured_with_fallback(messages, schema=self.schema, **combined_kwargs)
+
+
 class ModelAdapter:
     """
     Unified model adapter providing ultra-fast primary inference with automatic Gemini fallback.
@@ -156,6 +167,9 @@ class ModelAdapter:
     def bind_tools(self, tools: Any, **kwargs: Any) -> FallbackToolBinding:
         return FallbackToolBinding(tools, self, **kwargs)
 
+    def with_structured_output(self, schema: Any, **kwargs: Any) -> FallbackStructuredBinding:
+        return FallbackStructuredBinding(schema, self, **kwargs)
+
     def invoke(self, messages: Any, **kwargs: Any) -> Any:
         return self._invoke_with_fallback(messages, tools=None, **kwargs)
 
@@ -197,6 +211,42 @@ class ModelAdapter:
         if tools:
             return fallback_model.bind_tools(tools, **kwargs).invoke(gemini_messages)
         return fallback_model.invoke(gemini_messages, **kwargs)
+
+    def _invoke_structured_with_fallback(self, messages: Any, schema: Any, **kwargs: Any) -> Any:
+        if not self.primary_model:
+            self.__init__()
+            if not self.primary_model:
+                raise ValueError("No LLM API keys found. Please set CEREBRAS_API_KEY, GROQ_API_KEY, or GEMINI_API_KEY in backend/.env.")
+        last_exc = None
+        for attempt in range(2):
+            try:
+                structured_model = self.primary_model.with_structured_output(schema, **kwargs)
+                return structured_model.invoke(messages)
+            except Exception as primary_exc:
+                last_exc = primary_exc
+                if attempt == 0 and is_transient_error(primary_exc):
+                    time.sleep(1.2)
+                    continue
+                break
+
+        if not is_transient_error(last_exc) or not self.gemini_key or self.provider == "gemini":
+            raise last_exc
+
+        logger.warning(
+            "Primary model (%s) encountered transient error (%s). Falling back to Gemini for structured output...",
+            self.provider, type(last_exc).__name__
+        )
+
+        fallback_model = ChatGoogleGenerativeAI(
+            model=GEMINI_MODEL,
+            temperature=0,
+            google_api_key=self.gemini_key,
+            transport="rest",
+            timeout=GEMINI_TIMEOUT,
+            max_retries=0,
+        )
+        gemini_messages = sanitize_messages_for_gemini(messages)
+        return fallback_model.with_structured_output(schema, **kwargs).invoke(gemini_messages)
 
 
 # Singleton instance
