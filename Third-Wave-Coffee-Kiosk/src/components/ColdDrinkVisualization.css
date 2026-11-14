@@ -1,0 +1,177 @@
+/* =========================================================================
+   ColdDrinkVisualization.css — Photorealistic 3D Cold Drink Preparation Stage
+   Features:
+   - Dedicated WebGL 3D Canvas viewport with café lighting
+   - Tall transparent glass, ice cubes, liquid layers & condensation
+   - Floating AI Cashier card slot & interactive drag perspective
+   ========================================================================= */
+
+.cold-drink-vis-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 0%;
+  min-height: 500px;
+  border-radius: 1.5rem;
+  background: url('/craft/cafe_extended_scene.jpg') no-repeat top center / cover,
+              radial-gradient(circle at 50% 25%, #FAF5ED 0%, #EDE4D6 45%, #D4C4B0 75%, #C8B8A4 100%);
+  border: 1.5px solid rgba(216, 207, 196, 0.85);
+  box-shadow: 0 8px 32px rgba(28, 42, 57, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  overflow: hidden;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 640px) {
+  .cold-drink-vis-stage {
+    min-height: 540px;
+  }
+}
+
+/* 3D WebGL Canvas Viewport */
+.cold-drink-vis-canvas-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+}
+
+.cold-drink-vis-canvas-container:active {
+  cursor: grabbing;
+}
+
+.cold-drink-vis-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  outline: none;
+}
+
+/* Top Left Badge Pill */
+.cold-drink-vis-pill {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(28, 42, 57, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  z-index: 20;
+}
+
+.cold-drink-vis-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.cold-drink-vis-pill-text {
+  font-family: 'Lato', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1C2A39;
+  line-height: 1;
+}
+
+/* Top Right Container */
+.cold-drink-vis-top-right {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  z-index: 20;
+}
+
+.cold-drink-vis-price-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 0.28rem 0.65rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(28, 42, 57, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+}
+
+.cold-drink-vis-replay-action {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  background-color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(28, 42, 57, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1C2A39;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cold-drink-vis-replay-action:hover {
+  background-color: #FFFFFF;
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.cold-drink-vis-replay-action:active {
+  transform: scale(0.92);
+}
+
+/* Floating AI Cashier card slot overlaid on the bottom counter */
+.cold-drink-vis-floating-card-slot {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 640px) {
+  .cold-drink-vis-floating-card-slot {
+    bottom: 1.5rem;
+    left: 1rem;
+    right: 1rem;
+  }
+}
+
+/* Fallback Chilled Glass Stage if WebGL is unavailable */
+.cold-drink-vis-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 9rem;
+}
+
