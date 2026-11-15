@@ -103,7 +103,7 @@ export const KioskProvider = ({ children }) => {
   const [cart, setCart] = useState(() => loadStorage('cart', []));
 
   // Wallet
-  const [walletBalance, setWalletBalance] = useState(() => loadStorage('walletBalance', 450));
+  const [walletBalance, setWalletBalance] = useState(() => loadStorage('walletBalance', 0));
   const [selectedTopupAmount, setSelectedTopupAmount] = useState(600);
   const [customTopupInput, setCustomTopupInput] = useState('');
   const [lastTopupAmount, setLastTopupAmount] = useState(() => loadStorage('lastTopupAmount', null));
@@ -353,8 +353,8 @@ export const KioskProvider = ({ children }) => {
   const cartTotals = useMemo(() => {
     const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
     const subtotal = cart.reduce((sum, item) => sum + (item.totalPrice || item.unitPrice * item.quantity), 0);
-    const taxes = Math.round(subtotal * 0.05);
-    const totalPayable = subtotal + taxes;
+    const taxes = 0;
+    const totalPayable = subtotal;
 
     return {
       itemCount,
