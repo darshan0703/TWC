@@ -4,14 +4,13 @@ import { KioskHeader } from '../components/KioskHeader';
 import { BillSummary } from '../components/BillSummary';
 import { CART_RECOMMENDATIONS } from '../data/products';
 import { useKiosk } from '../context/KioskContext';
-import { Trash2, Plus, Minus, ArrowRight, Wallet, CreditCard, Sparkles, AlertCircle, ShoppingBag } from 'lucide-react';
+import { Trash2, Plus, Minus, ArrowRight, Wallet, CreditCard, Sparkles, ShoppingBag } from 'lucide-react';
 
 export const CartScreen = () => {
   const {
     cart,
     updateCartQuantity,
     removeFromCart,
-    clearCart,
     cartTotals,
     addDirectToCart,
     navigateTo,
@@ -19,7 +18,6 @@ export const CartScreen = () => {
     walletBalance
   } = useKiosk();
 
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const handlePayNow = () => {
@@ -56,64 +54,50 @@ export const CartScreen = () => {
               Review your customized specialty beverages & bakes
             </p>
           </div>
-
-          {cart.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowClearConfirm(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-red-200 text-red-700 hover:bg-red-50 text-[10px] font-bold uppercase tracking-wider transition-all active:scale-95 shadow-sm"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Clear</span>
-            </button>
-          )}
         </div>
 
         {cart.length > 0 ? (
           <div className="space-y-3.5">
             
             {/* Cart Items List */}
-            <div className="space-y-2">
+            <div className="space-y-1.5 sm:space-y-2">
               {cart.map((item) => (
                 <div
                   key={item.cartId}
-                  className="flex items-center justify-between gap-3 p-2.5 sm:p-3 rounded-2xl bg-white border border-beige-muted/80 shadow-sm"
+                  className="flex items-center justify-between gap-2.5 px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl bg-white border border-beige-muted/80 shadow-sm"
                 >
-                  {/* Thumbnail & Info */}
+                  {/* Thumbnail & Product Info on the Left */}
                   <div className="flex items-center gap-2.5 flex-1 min-w-0">
                     <img
                       src={item.image}
                       alt={item.name}
-                      className="w-13 h-13 rounded-xl object-cover shrink-0 border border-beige-muted/50"
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg object-cover shrink-0 border border-beige-muted/50"
                     />
 
-                    <div className="min-w-0 space-y-0.5">
-                      <h4 className="text-xs sm:text-sm font-black text-navy font-sans truncate">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs sm:text-[13px] font-black text-navy font-sans truncate leading-tight">
                         {item.name}
                       </h4>
 
                       {item.customizationsSummary && item.customizationsSummary.length > 0 && (
-                        <p className="text-[10px] text-taupe-warm truncate">
+                        <p className="text-[10px] text-taupe-warm truncate leading-tight mt-0.5">
                           {item.customizationsSummary.join(', ')}
                         </p>
                       )}
-
-                      <div className="text-xs font-black text-navy">
-                        ₹{item.totalPrice || item.unitPrice * item.quantity}
-                      </div>
                     </div>
                   </div>
 
-                  {/* Quantity & Delete */}
+                  {/* Quantity Controls, Price & Remove on the Right */}
                   <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex items-center gap-1.5 bg-cream-100 rounded-xl border border-beige-muted p-0.5">
+                    {/* Stepper Controls */}
+                    <div className="flex items-center gap-1 bg-cream-100 rounded-lg border border-beige-muted p-0.5">
                       <button
                         type="button"
                         onClick={() => updateCartQuantity(item.cartId, -1)}
-                        className="w-6 h-6 rounded-lg bg-white text-navy flex items-center justify-center hover:bg-cream-200 transition-all active:scale-95 shadow-sm"
+                        className="w-5.5 h-5.5 rounded-md bg-white text-navy flex items-center justify-center hover:bg-cream-200 transition-all active:scale-95 shadow-sm"
                         aria-label="Decrease quantity"
                       >
-                        <Minus className="w-3 h-3" />
+                        <Minus className="w-2.5 h-2.5" />
                       </button>
 
                       <span className="text-xs font-black text-navy w-4 text-center font-sans">
@@ -123,20 +107,26 @@ export const CartScreen = () => {
                       <button
                         type="button"
                         onClick={() => updateCartQuantity(item.cartId, 1)}
-                        className="w-6 h-6 rounded-lg bg-white text-navy flex items-center justify-center hover:bg-cream-200 transition-all active:scale-95 shadow-sm"
+                        className="w-5.5 h-5.5 rounded-md bg-white text-navy flex items-center justify-center hover:bg-cream-200 transition-all active:scale-95 shadow-sm"
                         aria-label="Increase quantity"
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-2.5 h-2.5" />
                       </button>
                     </div>
 
+                    {/* Product Price (Right-aligned) */}
+                    <div className="min-w-[46px] sm:min-w-[54px] text-right text-xs sm:text-[13px] font-black text-navy font-sans">
+                      ₹{item.totalPrice || item.unitPrice * item.quantity}
+                    </div>
+
+                    {/* Remove Button */}
                     <button
                       type="button"
                       onClick={() => removeFromCart(item.cartId)}
-                      className="w-7 h-7 rounded-lg bg-cream-200 hover:bg-red-50 text-navy/60 hover:text-red-700 flex items-center justify-center transition-colors"
+                      className="w-6.5 h-6.5 rounded-lg bg-cream-200 hover:bg-red-50 text-navy/60 hover:text-red-700 flex items-center justify-center transition-colors"
                       aria-label="Remove item"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
@@ -265,47 +255,6 @@ export const CartScreen = () => {
             <span>LOAD THIRD WAVE WALLET</span>
           </button>
         </footer>
-      )}
-
-      {/* Clear Cart Confirmation Modal */}
-      {showClearConfirm && (
-        <div className="absolute inset-0 z-50 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-xs w-full border border-beige-muted shadow-2xl text-center space-y-4 animate-scale-in">
-            <div className="w-12 h-12 rounded-full bg-red-50 text-red-700 flex items-center justify-center mx-auto border border-red-200">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-
-            <div>
-              <h3 className="text-lg font-black text-navy font-sans">
-                Clear Cart?
-              </h3>
-              <p className="text-xs text-taupe-warm font-serif italic mt-0.5">
-                Remove all items from your order tray?
-              </p>
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  clearCart();
-                  setShowClearConfirm(false);
-                }}
-                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold uppercase text-[10px] tracking-wider"
-              >
-                Clear All
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowClearConfirm(false)}
-                className="flex-1 py-2.5 bg-cream-200 hover:bg-beige text-navy rounded-xl font-bold uppercase text-[10px] tracking-wider"
-              >
-                Keep Items
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Simulated Payment Modal */}
