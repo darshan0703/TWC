@@ -1,6 +1,6 @@
 import React from 'react';
 import './BillSummary.css';
-import { ShieldCheck, Info } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 export const BillSummary = ({ totals, note }) => {
   return (
@@ -18,21 +18,6 @@ export const BillSummary = ({ totals, note }) => {
         <div className="bill-summary__row flex items-center justify-between text-navy/80">
           <span>Item Total</span>
           <span className="bill-summary__row-value font-bold text-navy">₹{totals.subtotal}</span>
-        </div>
-
-        <div className="bill-summary__row flex items-center justify-between text-navy/80">
-          <div className="flex items-center gap-1">
-            <span>Taxes (5% GST)</span>
-            <Info className="w-3 h-3 text-taupe-warm" />
-          </div>
-          <span className="bill-summary__row-value font-bold text-navy">₹{totals.taxes}</span>
-        </div>
-
-        <div className="bill-summary__row flex items-center justify-between text-emerald-800 font-medium">
-          <span>Kiosk Ordering Fee</span>
-          <span className="bill-summary__free-pill font-bold uppercase tracking-wider text-[9px] bg-emerald-50 text-emerald-800 px-1.5 py-0.2 rounded border border-emerald-200">
-            Free
-          </span>
         </div>
       </div>
 
