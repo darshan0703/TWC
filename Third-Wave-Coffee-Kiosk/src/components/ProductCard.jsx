@@ -1,6 +1,6 @@
 import React from 'react';
 import './ProductCard.css';
-import { Plus, Check, Sparkles } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 export const ProductCard = ({ product, onAdd, onOpenDetail }) => {
   const isPremium = product.badgeType === 'premium' || product.badge === 'Premium';
@@ -91,12 +91,12 @@ export const ProductCard = ({ product, onAdd, onOpenDetail }) => {
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            onAdd(product);
+            onOpenDetail?.(product);
           }}
-          className="product-card__add-btn flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-navy hover:bg-navy-charcoal active:scale-90 text-white text-[11px] font-bold shadow-sm transition-all border border-navy"
+          className="product-card__nav-chevron bg-transparent border-0 shadow-none p-0 text-navy cursor-pointer select-none flex items-center justify-center hover:opacity-70 transition-opacity"
+          aria-label={`Customize ${product.name}`}
         >
-          <Plus className="w-3.5 h-3.5" />
-          <span>ADD</span>
+          <ChevronRight className="w-5 h-5 text-navy" />
         </button>
       </div>
     </div>

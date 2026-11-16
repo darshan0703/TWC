@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import './MilkVisualization.css';
-import { RotateCcw, Sparkles } from 'lucide-react';
 
 /**
  * 5 Milk Variants configuration matching Third Wave Coffee specifications
@@ -211,12 +210,31 @@ export const MilkVisualization = ({
 
   // Handle external animStage and triggers from parent
   const lastProcessedTriggerRef = useRef(null);
+  const prevSizeRef = useRef(size);
 
   useEffect(() => {
     if (isCold) return;
 
-    // 1. Reset or size changed to Regular
-    if (size === 'Regular' && (stepKey === 'size' || animStage === 'reset')) {
+    const sizeChanged = prevSizeRef.current !== size;
+    prevSizeRef.current = size;
+
+    // 1. Explicit animStage triggers from parent
+    if (animTrigger && animTrigger !== lastProcessedTriggerRef.current) {
+      lastProcessedTriggerRef.current = animTrigger;
+
+      if (animStage === 'espresso') {
+        const espSrc = isLarge ? CAPPUCCINO_ASSETS.largeEspresso : CAPPUCCINO_ASSETS.regularEspresso;
+        playVideoSource(espSrc, 'espresso');
+        return;
+      } else if (animStage === 'milk') {
+        const milkSrc = isLarge ? CAPPUCCINO_ASSETS.largeMilkPour : CAPPUCCINO_ASSETS.regularMilkPour;
+        playVideoSource(milkSrc, 'milk');
+        return;
+      }
+    }
+
+    // 2. Reset or size explicitly changed to Regular
+    if (animStage === 'reset' || (sizeChanged && size === 'Regular')) {
       setShowStaticCup(true);
       setVisualStage('regular_empty');
       setIsPlaying(false);
@@ -227,25 +245,12 @@ export const MilkVisualization = ({
       return;
     }
 
-    // 2. Size changed to Large on Step 1
-    if (size === 'Large' && stepKey === 'size') {
+    // 3. Size explicitly changed to Large
+    if (sizeChanged && size === 'Large') {
       if (visualStage !== 'large_empty') {
         playVideoSource(CAPPUCCINO_ASSETS.regularToLarge, 'size');
       }
       return;
-    }
-
-    // 3. Explicit animStage triggers from parent
-    if (animTrigger && animTrigger !== lastProcessedTriggerRef.current) {
-      lastProcessedTriggerRef.current = animTrigger;
-
-      if (animStage === 'espresso') {
-        const espSrc = isLarge ? CAPPUCCINO_ASSETS.largeEspresso : CAPPUCCINO_ASSETS.regularEspresso;
-        playVideoSource(espSrc, 'espresso');
-      } else if (animStage === 'milk') {
-        const milkSrc = isLarge ? CAPPUCCINO_ASSETS.largeMilkPour : CAPPUCCINO_ASSETS.regularMilkPour;
-        playVideoSource(milkSrc, 'milk');
-      }
     }
   }, [size, stepKey, animStage, animTrigger, isLarge, isCold, visualStage, playVideoSource]);
 
@@ -257,26 +262,6 @@ export const MilkVisualization = ({
       setVisualStage('milk_finished');
     }
   }, [isReady, visualStage, isCold]);
-
-  // Manual replay button
-  const handleReplay = (e) => {
-    e.stopPropagation();
-    if (isCold) return;
-
-    if (stepKey === 'size') {
-      if (isLarge) {
-        playVideoSource(CAPPUCCINO_ASSETS.regularToLarge, 'size');
-      } else {
-        setShowStaticCup(true);
-      }
-    } else if (stepKey === 'strength' || visualStage === 'espresso_filled') {
-      const espSrc = isLarge ? CAPPUCCINO_ASSETS.largeEspresso : CAPPUCCINO_ASSETS.regularEspresso;
-      playVideoSource(espSrc, 'espresso');
-    } else if (stepKey === 'milk' || isReady || visualStage === 'milk_finished') {
-      const milkSrc = isLarge ? CAPPUCCINO_ASSETS.largeMilkPour : CAPPUCCINO_ASSETS.regularMilkPour;
-      playVideoSource(milkSrc, 'milk');
-    }
-  };
 
   // Touch / pointer drag for slight 3D perspective tilt
   const dragStartRef = useRef(0);
@@ -444,59 +429,6 @@ export const MilkVisualization = ({
               <div className="cold-glass-coaster" />
             </div>
           )}
-        </div>
-      )}
-
-      {/* =========================================================================
-          TOP OVERLAYS: INGREDIENT BADGE, PRICE PILL, REPLAY ACTION
-          ========================================================================= */}
-
-      {/* Top Left: Active Ingredient & Size Badge */}
-      <div className="milk-vis-pill milk-vis-pill--left">
-        <span
-          className="milk-vis-dot"
-          style={{
-            backgroundColor: stepKey !== 'size' ? currentMilk.colorHex : '#A89F91'
-          }}
-        />
-        <span className="milk-vis-pill-text">
-          {stepKey === 'size' && (isCold ? (isLarge ? 'Highball Glass • Large (450ml)' : 'Highball Glass • Regular (350ml)') : (isLarge ? 'Glass Cup • Large (350ml)' : 'Glass Cup • Regular (240ml)'))}
-          {stepKey === 'strength' && `Espresso (${strength})`}
-          {stepKey === 'milk' && currentMilk.label}
-          {stepKey === 'sweetness' && (isCold ? `Chilled • ${sweetness}` : `Latte Art • ${sweetness}`)}
-          {(stepKey === 'ready' || isReady) && 'Ready to Serve'}
-        </span>
-      </div>
-
-      {/* Top Right: Product Name & Price Pill + Replay Button */}
-      <div className="milk-vis-top-right">
-        {unitPrice != null && (
-          <div className="milk-vis-price-pill">
-            <span className="text-[10px] font-black uppercase tracking-wider text-navy truncate max-w-[110px]">
-              {productName}
-            </span>
-            <span className="text-xs font-black text-navy">
-              ₹{unitPrice}
-            </span>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={handleReplay}
-          className="milk-vis-replay-action"
-          title="Replay step animation"
-          aria-label="Replay animation"
-        >
-          <RotateCcw className={`w-3.5 h-3.5 ${isPlaying ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
-
-      {/* =========================================================================
-          LAYER 2: FLOATING AI CASHIER CUSTOMIZATION CARD (Overlaid at Lower Portion)
-          ========================================================================= */}
-      {children && (
-        <div className="milk-vis-floating-card-slot">
-          {children}
         </div>
       )}
     </div>

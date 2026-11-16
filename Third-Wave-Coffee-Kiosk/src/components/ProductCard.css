@@ -143,31 +143,29 @@
   font-family: "Plus Jakarta Sans", sans-serif;
 }
 
-/* Add to Cart button: easily adjust dimensions & padding here */
-.product-card__add-btn {
+/* Navigation chevron indicator */
+.product-card__nav-chevron {
+  background: none;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  color: #1C2A39;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.375rem 0.625rem;       /* 6px 10px */
-  min-height: 30px;                 /* Easily adjust button height */
-  border-radius: 0.75rem;           /* 12px */
-  background-color: #1C2A39;
-  color: #FFFFFF;
-  font-size: 0.6875rem;             /* 11px */
-  font-weight: 800;
-  text-transform: uppercase;
-  border: 1px solid #1C2A39;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: all 0.15s ease;
-  cursor: pointer;
+  justify-content: center;
+  user-select: none;
   -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.product-card__add-btn:hover {
-  background-color: #243342;
+.product-card__nav-chevron:hover {
+  opacity: 0.7;
 }
 
-.product-card__add-btn:active {
-  transform: scale(0.9);
+.product-card__nav-chevron:active {
+  transform: scale(0.92);
 }
 
