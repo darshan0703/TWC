@@ -321,12 +321,16 @@ def validate_and_configure_item(
     )
     total_price = unit_price * max(1, quantity)
 
+    pid = (product.get("id") or "").lower()
+    pname = (product.get("name") or "").lower()
+    is_capp = pid == "cappuccino" or "cappuccino" in pid or "cappuccino" in pname
+
     summary = [
         f"{canonical_size} ({'350 ml' if canonical_size == 'Large' else '240 ml'})" if is_customizable else None,
         canonical_temp if (supports_temp and is_customizable) else None,
         canonical_strength if (is_coffee and is_customizable) else None,
         canonical_milk if is_customizable and canonical_milk != "None" else None,
-        canonical_sugar if is_customizable and canonical_sugar != "Standard" else None,
+        canonical_sugar if (is_customizable and not is_capp and canonical_sugar != "Standard") else None,
     ]
     customizations_summary = [s for s in summary if s is not None]
 

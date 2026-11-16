@@ -346,6 +346,17 @@ export const VoiceBaristaProvider = ({ children }) => {
       // Execute UI actions (navigation, cart updates, drink customizer, confirmation)
       handleAssistantActions(resp);
 
+      // Check if this response is asking to add cappuccino to cart
+      // If so, defer voice prompt until the milk pour video has completed
+      const isCartConfirmQuestion = (resp.response || '').toLowerCase().includes('add this to your cart');
+      const isCappuccinoCustomization = kiosk.selectedProduct && 
+        (kiosk.selectedProduct.id === 'cappuccino' || (kiosk.selectedProduct.name || '').toLowerCase().includes('cappuccino'));
+
+      if (isCartConfirmQuestion && isCappuccinoCustomization) {
+        console.log('[VoiceBarista] Holding cart confirmation prompt until milk animation finishes.');
+        return;
+      }
+
       // Synthesize and play Kokoro TTS
       const speakText = resp.speakable_response || replyText;
       try {
@@ -647,6 +658,35 @@ export const VoiceBaristaProvider = ({ children }) => {
     };
   }, [handleSendText]);
 
+  const speakPrompt = useCallback(async (text) => {
+    if (!text || !text.trim()) return;
+    setAssistantReply(text);
+    const currentTurn = ++activeTurnIdRef.current;
+    try {
+      startInterruptionDetection();
+      const audioBlob = await fetchTTSAudio(text);
+      if (currentTurn !== activeTurnIdRef.current) return;
+      setVoiceState('speaking');
+      playAudioBlob(audioBlob, {
+        onStart: () => {
+          if (currentTurn === activeTurnIdRef.current) setVoiceState('speaking');
+        },
+        onEnd: () => {
+          if (currentTurn === activeTurnIdRef.current) {
+            handleStartListeningRef.current?.({ isBargeIn: false });
+          }
+        },
+        onError: (err) => {
+          console.warn('[VoiceBarista] Audio playback warning:', err);
+          if (currentTurn === activeTurnIdRef.current) setVoiceState('idle');
+        }
+      });
+    } catch (err) {
+      console.warn('[VoiceBarista] TTS playback skipped:', err);
+      handleStartListeningRef.current?.({ isBargeIn: false });
+    }
+  }, [setVoiceState]);
+
   const value = {
     voiceState,
     sessionActive,
@@ -668,6 +708,7 @@ export const VoiceBaristaProvider = ({ children }) => {
     interruptSpeaking: handleInterruptSpeaking,
     toggleMic: handleToggleMic,
     sendTextMessage: handleSendText,
+    speakPrompt,
   };
 
   return (

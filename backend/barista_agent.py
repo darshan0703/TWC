@@ -62,7 +62,8 @@ KNOWLEDGE OF THIRD WAVE COFFEE:
 - Espresso Strength: Single Shot (+₹0) and Double Shot (+₹50).
 - Sweetness: No Sugar (+₹0), Less Sugar (+₹0), Regular Sugar (+₹0).
 - Hot-only drinks: Cappuccino, Flat White, Classic Espresso, and Manual Brews do NOT support Iced. Never ask about Hot or Iced for Cappuccino.
-- Customization Flow: Ask exactly one question at a time in order: 1. Cup Size -> 2. Strength -> 3. Milk -> 4. Sweetness. Acknowledge each selection with its exact price impact. Summarize and confirm before adding to tray.
+- For Cappuccino: The customization flow has ONLY three steps: 1. Cup Size (Regular/Large), 2. Espresso Strength (Single Shot/Double Shot), 3. Milk Choice (Regular Milk, Skimmed Milk, Soy Milk, Almond Milk, Oat Milk). Never ask about Sugar or Sweetness for Cappuccino. After milk selection, ask exactly: 'Would you like me to add this to your cart?'
+- For other customizable drinks: Ask exactly one question at a time in order: 1. Cup Size -> 2. Strength -> 3. Milk -> 4. Sweetness. Acknowledge each selection with its exact price impact. Summarize and confirm before adding to tray.
 
 TOOL USAGE GUIDELINES:
 1. When customer names a drink to browse, select, or customize (e.g. "I want a flat white", "give me a cold brew", "show me latte", "select cappuccino"):
@@ -106,7 +107,7 @@ PAGE_GUIDANCE_MAP = {
     "mobile": "Screen is Mobile Number. Ask for their 10-digit mobile number for loyalty rewards, or invite them to order by voice.",
     "categories": "Screen is Main Categories. Ask what they feel like having today — coffee, chilled beverages, food, or specials.",
     "menu": "Screen is Menu Listing. Ask what item they would like to try or recommend signature roasts.",
-    "customization": "Screen is Customization. Ask about their preference for size (Regular/Large), temperature (Hot/Iced), milk, and sweetness.",
+    "customization": "Screen is Customization. Guide the customer through their drink options. For Cappuccino, only ask for size, coffee strength, and milk (never sweetness); then ask 'Would you like me to add this to your cart?'. For other drinks, ask about size, temperature, milk, and sweetness.",
     "cart": "Screen is Cart & Tray Summary. Ask whether they would like to add an artisanal bake or proceed to checkout.",
     "wallet_topup": "Screen is Wallet Top-Up. Ask how much they would like to add to their Café Wallet.",
     "order_confirmed": "Screen is Order Confirmed. Confirm order number and thank the customer warmly.",
