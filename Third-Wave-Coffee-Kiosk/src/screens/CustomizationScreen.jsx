@@ -552,6 +552,26 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
     }
   };
 
+  const handleReopenCustomization = () => {
+    cancelPendingTransition();
+    setDisplayedStepIndex(0);
+    setIsConfirmedReview(false);
+    setTransitionPhase('idle');
+    syncCustomization({ stepIndex: 0, pendingConfirmation: false, isVoiceSelection: false });
+    if (sessionId) {
+      syncCustomizationState({
+        sessionId,
+        stepIndex: 0,
+        size,
+        strength,
+        milk,
+        sugar,
+        quantity,
+        pendingConfirmation: false,
+      });
+    }
+  };
+
   const handleNextCard = () => {
     cancelPendingTransition();
     if (displayedStepIndex < STEPS.length - 1) {
@@ -661,18 +681,16 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
         onBackOverride={() => navigateTo('menu')}
       />
 
-      {/* Main Responsive Viewport: Distributes expanded coffee visualization and moves content downward */}
-      <main className="customization-screen__main flex-1 min-h-0 px-3 sm:px-4 pt-1 pb-1 overflow-y-auto flex flex-col justify-between">
+      {/* Main Responsive Viewport: Separates video and AI Cashier customization card */}
+      <main className="customization-screen__main flex-1 min-h-0 px-3 sm:px-4 pt-1 pb-2 overflow-y-auto flex flex-col">
         
         {/* =========================================================================
-            2. EXPANDED COFFEE PREPARATION SCENE
-            - Consumes all remaining vertical screen height
-            - Original cup remains in upper position with natural proportions
-            - Extended marble table & café background fills previously empty region
-            - Floating AI Cashier card shifted downward into the extended scene
-            - Existing Quantity UI positioned directly below AI Cashier card
+            1. COFFEE PREPARATION VISUALIZATION
+            - Independent visual component rendered at top of viewport
+            - Video cropped naturally to center cup without distortion
+            - No overlays or floating children inside
             ========================================================================= */}
-        <div className="customization-screen__vis-container flex-1 min-h-[500px] sm:min-h-[540px] w-full flex flex-col mb-1.5">
+        <div className="customization-screen__vis-container customization-screen__vis-container--coffee">
           <MilkVisualization
             drinkStyle={isColdCoffee ? 'cold' : 'cappuccino'}
             stepKey={activeStep.key}
@@ -688,9 +706,18 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
             productName={product.name}
             unitPrice={unitPrice}
             onAnimationDone={handleAnimationDone}
-            className="flex-1 w-full h-full"
-          >
-            {/* FLOATING AI CASHIER CARD (Shifted slightly down into extended table area) */}
+            className="w-full h-full"
+          />
+        </div>
+
+        {/* =========================================================================
+            2. STATE A: AI CASHIER CUSTOMIZATION CARD (During customization)
+            - Normal document flow directly underneath the video
+            - Never overlaps or covers the video/cup
+            - Hidden once preparation finishes
+            ========================================================================= */}
+        {!isConfirmedReview && (
+          <div className="customization-screen__card-slot w-full shrink-0">
             <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3 sm:p-3.5 border border-white/80 shadow-[0_8px_30px_rgba(28,42,57,0.12)] space-y-2.5 transition-all duration-300">
               
               {/* Card Header: Step Indicator & Step Jump Dots */}
@@ -725,7 +752,7 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
 
               {/* Step Question and Options Body Wrapped for Smooth Transition */}
               <div
-                className={`customization-step-content ${
+                className={`customization-step-content space-y-2.5 ${
                   transitionPhase === 'fading_out'
                     ? 'customization-step-content--fading-out'
                     : transitionPhase === 'fading_in'
@@ -735,196 +762,160 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
                     : ''
                 }`}
               >
-                {/* Conversational AI Question */}
-              <div>
-                <h3 className="text-xs sm:text-sm font-black text-navy leading-snug">
-                  {isConfirmedReview && isCappuccino
-                    ? "Would you like me to add this to your cart?"
-                    : activeStep.question}
-                </h3>
-                <span className="text-[9.5px] text-taupe-warm font-medium">
-                  {isConfirmedReview && isCappuccino
-                    ? `${size} • ${strength} • ${milk} Milk • ₹${totalPrice}`
-                    : activeStep.hint}
-                </span>
-              </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black text-navy leading-snug">
+                    {activeStep.question}
+                  </h3>
+                  <span className="text-[9.5px] text-taupe-warm font-medium">
+                    {activeStep.hint}
+                  </span>
+                </div>
 
-              {/* Selection Options Body */}
-              <div>
-                {isConfirmedReview && isCappuccino ? (
-                  <div className="space-y-1.5 py-1">
-                    <div className="bg-cream-100/90 rounded-xl p-2.5 border border-beige-muted/80 text-xs text-navy font-bold flex justify-between items-center shadow-xs">
-                      <span>{size} Cup ({size === 'Large' ? '350 ml' : '240 ml'})</span>
-                      <span className="text-[11px] text-taupe-warm">{strength}</span>
-                      <span className="text-[11px] text-emerald-800 font-extrabold">{milk} Milk</span>
+                {/* Selection Options Body */}
+                <div>
+                  {/* Step 1: Cup Size */}
+                  {activeStep.key === 'size' && (
+                    <div className={`grid ${availableSizes.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+                      {availableSizes.map((s) => {
+                        const isSelected = size === s.id;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => handleSelectSize(s.id)}
+                            className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer active:scale-98 ${
+                              isSelected
+                                ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
+                                : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
+                            }`}
+                          >
+                            <div className="text-left">
+                              <span className="text-xs font-black block">{s.label}</span>
+                              <span className="text-[8.5px] text-taupe-warm font-medium">{s.sizeMl}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {s.priceDiff > 0 && (
+                                <span className="text-[9px] font-bold bg-white px-1.5 py-0.5 rounded text-navy border border-beige-muted">
+                                  +₹{s.priceDiff}
+                                </span>
+                              )}
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                                isSelected ? 'border-navy bg-navy text-white' : 'border-beige-dark'
+                              }`}>
+                                {isSelected && <Check className="w-2.5 h-2.5" />}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
-                  </div>
-                ) : (
-                  <>
-                {/* Step 1: Cup Size */}
-                {activeStep.key === 'size' && (
-                  <div className={`grid ${availableSizes.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
-                    {availableSizes.map((s) => {
-                      const isSelected = size === s.id;
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => handleSelectSize(s.id)}
-                          className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer active:scale-98 ${
-                            isSelected
-                              ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
-                              : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
-                          }`}
-                        >
-                          <div className="text-left">
-                            <span className="text-xs font-black block">{s.label}</span>
-                            <span className="text-[8.5px] text-taupe-warm font-medium">{s.sizeMl}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {s.priceDiff > 0 && (
-                              <span className="text-[9px] font-bold bg-white px-1.5 py-0.5 rounded text-navy border border-beige-muted">
-                                +₹{s.priceDiff}
+                  )}
+
+                  {/* Step 2: Strength */}
+                  {activeStep.key === 'strength' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {STRENGTH_OPTIONS.map((st) => {
+                        const isSelected = strength === st.id;
+                        return (
+                          <button
+                            key={st.id}
+                            type="button"
+                            onClick={() => handleSelectStrength(st.id)}
+                            className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer active:scale-98 ${
+                              isSelected
+                                ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
+                                : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
+                            }`}
+                          >
+                            <div className="text-left">
+                              <span className="text-xs font-black block">{st.label}</span>
+                              <span className="text-[8.5px] text-taupe-warm font-medium">{st.desc}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {st.priceDiff > 0 && (
+                                <span className="text-[9px] font-bold bg-white px-1.5 py-0.5 rounded text-navy border border-beige-muted">
+                                  +₹{st.priceDiff}
+                                </span>
+                              )}
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                                isSelected ? 'border-navy bg-navy text-white' : 'border-beige-dark'
+                              }`}>
+                                {isSelected && <Check className="w-2.5 h-2.5" />}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Step 3: Milk Selection */}
+                  {activeStep.key === 'milk' && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      {CUSTOMIZATION_OPTIONS.milks.map((m) => {
+                        const isSelected = resolveMilkKey(milk) === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => handleSelectMilk(m.id)}
+                            className={`p-2 rounded-xl border-2 text-left transition-all cursor-pointer active:scale-98 ${
+                              isSelected
+                                ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
+                                : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-[11px] font-extrabold truncate">{m.id}</span>
+                              <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
+                                isSelected ? 'border-navy bg-navy text-white' : 'border-beige-dark'
+                              }`}>
+                                {isSelected && <Check className="w-2 h-2" />}
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between text-[9.5px]">
+                              <span className="text-navy font-bold">
+                                {m.priceDiff === 0 ? 'Free' : `+₹${m.priceDiff}`}
                               </span>
-                            )}
-                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                              isSelected ? 'border-navy bg-navy text-white' : 'border-beige-dark'
-                            }`}>
-                              {isSelected && <Check className="w-2.5 h-2.5" />}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Step 2: Strength */}
-                {activeStep.key === 'strength' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {STRENGTH_OPTIONS.map((st) => {
-                      const isSelected = strength === st.id;
-                      return (
-                        <button
-                          key={st.id}
-                          type="button"
-                          onClick={() => handleSelectStrength(st.id)}
-                          className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border-2 transition-all cursor-pointer active:scale-98 ${
-                            isSelected
-                              ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
-                              : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
-                          }`}
-                        >
-                          <div className="text-left">
-                            <span className="text-xs font-black block">{st.label}</span>
-                            <span className="text-[8.5px] text-taupe-warm font-medium">{st.desc}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {st.priceDiff > 0 && (
-                              <span className="text-[9px] font-bold bg-white px-1.5 py-0.5 rounded text-navy border border-beige-muted">
-                                +₹{st.priceDiff}
+                              <span className="text-[8px] text-taupe-warm font-medium truncate">
+                                {m.tag}
                               </span>
-                            )}
-                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                              isSelected ? 'border-navy bg-navy text-white' : 'border-beige-dark'
-                            }`}>
-                              {isSelected && <Check className="w-2.5 h-2.5" />}
                             </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
 
-                {/* Step 3: Milk Selection */}
-                {activeStep.key === 'milk' && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                    {CUSTOMIZATION_OPTIONS.milks.map((m) => {
-                      const isSelected = resolveMilkKey(milk) === m.id;
-                      return (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => handleSelectMilk(m.id)}
-                          className={`p-2 rounded-xl border-2 text-left transition-all cursor-pointer active:scale-98 ${
-                            isSelected
-                              ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
-                              : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className="text-[11px] font-extrabold truncate">{m.id}</span>
-                            <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
-                              isSelected ? 'border-navy bg-navy text-white' : 'border-beige-dark'
-                            }`}>
-                              {isSelected && <Check className="w-2 h-2" />}
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between text-[9.5px]">
-                            <span className="text-navy font-bold">
-                              {m.priceDiff === 0 ? 'Free' : `+₹${m.priceDiff}`}
-                            </span>
-                            <span className="text-[8px] text-taupe-warm font-medium truncate">
-                              {m.tag}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Step 4: Sweetness */}
-                {activeStep.key === 'sweetness' && (
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {CUSTOMIZATION_OPTIONS.sugar.map((sug) => {
-                      const isSelected = sugar === sug.label;
-                      return (
-                        <button
-                          key={sug.id}
-                          type="button"
-                          onClick={() => handleSelectSugar(sug.label)}
-                          className={`p-2 rounded-xl border-2 text-center transition-all cursor-pointer active:scale-98 ${
-                            isSelected
-                              ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
-                              : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
-                          }`}
-                        >
-                          <span className="text-[11px] font-black block">{sug.id}</span>
-                          <span className="text-[8.5px] text-taupe-warm block">{sug.desc}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                  </>
-                )}
-
+                  {/* Step 4: Sweetness */}
+                  {activeStep.key === 'sweetness' && (
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {CUSTOMIZATION_OPTIONS.sugar.map((sug) => {
+                        const isSelected = sugar === sug.label;
+                        return (
+                          <button
+                            key={sug.id}
+                            type="button"
+                            onClick={() => handleSelectSugar(sug.label)}
+                            className={`p-2 rounded-xl border-2 text-center transition-all cursor-pointer active:scale-98 ${
+                              isSelected
+                                ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
+                                : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold hover:border-beige-dark'
+                            }`}
+                          >
+                            <span className="text-[11px] font-black block">{sug.id}</span>
+                            <span className="text-[8.5px] text-taupe-warm block">{sug.desc}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Continue / Next Button */}
               <div className="pt-0.5">
-                {isConfirmedReview ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleStepJump(0)}
-                      className="flex-1 py-2.5 rounded-xl border border-beige-dark text-navy text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-cream-200 transition-all cursor-pointer active:scale-98"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Change</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAddToCart}
-                      className="flex-[2] py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-98"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                      <span>Add to Cart • ₹{totalPrice}</span>
-                    </button>
-                  </div>
-                ) : displayedStepIndex < STEPS.length - 1 ? (
+                {displayedStepIndex < STEPS.length - 1 ? (
                   <button
                     type="button"
                     onClick={handleNextCard}
@@ -947,96 +938,108 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
 
             </div>
           </div>
-
-            {/* EXISTING QUANTITY UI (Positioned inside the extended scene, directly below the card) */}
-            <div className="bg-white/95 backdrop-blur-md rounded-xl p-2.5 px-3 border border-white/80 shadow-md flex items-center justify-between mt-2">
-              <span className="text-xs font-black uppercase tracking-wider text-navy">
-                Quantity
-              </span>
-
-              <div className="flex items-center gap-3 bg-cream-100 rounded-lg border border-beige-muted p-1">
-                <button
-                  type="button"
-                  onClick={() => handleQuantityChange(quantity - 1)}
-                  disabled={quantity <= 1}
-                  className="w-7 h-7 rounded-md bg-white text-navy flex items-center justify-center hover:bg-cream-200 disabled:opacity-40 transition-all active:scale-95 shadow-xs cursor-pointer"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-
-                <span className="text-sm font-black text-navy w-4 text-center font-sans">
-                  {quantity}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuantityChange(quantity + 1)}
-                  className="w-7 h-7 rounded-md bg-white text-navy flex items-center justify-center hover:bg-cream-200 transition-all active:scale-95 shadow-xs cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-          </MilkVisualization>
-        </div>
+        )}
 
         {/* =========================================================================
-            3. PAIRS WELL WITH RECOMMENDATIONS
-            Positioned immediately below the expanded visualization with minimal gap,
-            sitting right above the fixed Add to Cart bar.
+            3. STATE B: POST-PREPARATION (Active after complete preparation finishes)
+            - Displays grey CUSTOMIZATION reopen button aligned to left
+            - Displays PAIRS WELL WITH recommendations underneath it
+            - Completed coffee visual and steam remain visible above
             ========================================================================= */}
-        <div className="customization-screen__pairs-section shrink-0 pt-0.5 pb-1">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[11px] font-extrabold tracking-wider uppercase text-taupe-warm font-sans">
-              Pairs Well With
-            </span>
-            <span className="text-[10px] text-taupe-warm font-medium">
-              Barista pairing
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            {PASTRY_RECOMMENDATIONS.slice(0, 2).map((pastry) => (
-              <div
-                key={pastry.id}
-                className="bg-white rounded-2xl p-2.5 border border-beige-muted/80 shadow-sm flex items-center justify-between gap-2"
+        {isConfirmedReview && (
+          <div className="customization-screen__post-prep-slot w-full flex flex-col gap-2 shrink-0">
+            {/* 7. CUSTOMIZATION Reopen Button */}
+            <div className="flex items-center justify-start">
+              <button
+                type="button"
+                onClick={handleReopenCustomization}
+                className="customization-screen__reopen-btn"
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <img
-                    src={pastry.image}
-                    alt={pastry.name}
-                    className="w-10 h-10 rounded-xl object-cover border border-beige-muted shrink-0"
-                  />
-                  <div className="truncate">
-                    <span className="text-[11px] font-black text-navy truncate block">
-                      {pastry.name}
-                    </span>
-                    <span className="text-[10px] font-extrabold text-navy">
-                      ₹{pastry.price}
-                    </span>
-                  </div>
-                </div>
+                <span>CUSTOMIZATION</span>
+              </button>
+            </div>
 
-                <button
-                  type="button"
-                  onClick={() => addDirectToCart(pastry)}
-                  className="w-7 h-7 rounded-lg bg-cream-100 hover:bg-cream-200 border border-beige-muted text-navy flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0"
-                  title={`Add ${pastry.name}`}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
+            {/* 8. PAIRS WELL WITH Recommendations */}
+            <div className="customization-screen__pairs-section shrink-0 pt-0.5 pb-1">
+              <div className="flex items-center justify-between px-1 mb-1.5">
+                <span className="text-[11px] font-extrabold tracking-wider uppercase text-taupe-warm font-sans">
+                  Pairs Well With
+                </span>
+                <span className="text-[10px] text-taupe-warm font-medium">
+                  Barista pairing
+                </span>
               </div>
-            ))}
+
+              <div className="grid grid-cols-2 gap-2">
+                {PASTRY_RECOMMENDATIONS.slice(0, 2).map((pastry) => (
+                  <div
+                    key={pastry.id}
+                    className="bg-white rounded-2xl p-2.5 border border-beige-muted/80 shadow-sm flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <img
+                        src={pastry.image}
+                        alt={pastry.name}
+                        className="w-10 h-10 rounded-xl object-cover border border-beige-muted shrink-0"
+                      />
+                      <div className="truncate">
+                        <span className="text-[11px] font-black text-navy truncate block">
+                          {pastry.name}
+                        </span>
+                        <span className="text-[10px] font-extrabold text-navy">
+                          ₹{pastry.price}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => addDirectToCart(pastry)}
+                      className="w-7 h-7 rounded-lg bg-cream-100 hover:bg-cream-200 border border-beige-muted text-navy flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0"
+                      title={`Add ${pastry.name}`}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
       </main>
 
       {/* =========================================================================
-          4. FIXED ADD TO CART BUTTON
+          4. FIXED BOTTOM BAR: QUANTITY & ADD TO CART (Shared horizontal row)
           ========================================================================= */}
       <footer className="customization-screen__bottom-bar">
+        {/* Quantity Controls (Left side, approx 110-120px) */}
+        <div className="customization-screen__qty-selector">
+          <button
+            type="button"
+            onClick={() => handleQuantityChange(quantity - 1)}
+            disabled={quantity <= 1}
+            className="customization-screen__qty-btn"
+            aria-label="Decrease quantity"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+
+          <span className="customization-screen__qty-val">
+            {quantity}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => handleQuantityChange(quantity + 1)}
+            className="customization-screen__qty-btn"
+            aria-label="Increase quantity"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Add to Cart Button (Right side, remaining available width) */}
         <button
           type="button"
           onClick={handleAddToCart}
