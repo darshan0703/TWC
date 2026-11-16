@@ -135,7 +135,7 @@ PAGE_PROMPT_MAP = {
     "mobile": "Please enter your 10-digit mobile number on the screen to get started, or tell me your number!",
     "categories": "What do you feel like having today — coffee, chilled drinks, or artisanal food?",
     "menu": "Which handcrafted brew or bite would you like to try?",
-    "customization": "How would you like your beverage customized? You can choose size, temperature, milk, and sweetness.",
+    "customization": "How would you like your beverage customized? You can choose size, temperature, coffee strength, and milk.",
     "cart": "Here is your order tray. Would you like to add anything else or proceed to checkout?",
     "wallet_topup": "How much would you like to add to your Café Wallet today?",
     "order_confirmed": "Your order is confirmed and being handcrafted at the coffee bar. Thank you!",
@@ -216,6 +216,10 @@ def update_screen(req: ScreenUpdateRequest):
         focused_product_id=req.product_id
     )
     prompt = PAGE_PROMPT_MAP.get(req.screen, "What handcrafted brew can I get for you today?")
+    if req.screen == "customization" and req.product_id:
+        prod = catalog.get_product(req.product_id)
+        if prod and ("cappuccino" in prod.get("name", "").lower() or "cappuccino" in prod.get("id", "").lower()):
+            prompt = "How would you like your Signature Cappuccino customized? You can choose cup size, coffee strength, and milk choice."
     return {
         "success": True,
         "active_screen": state.ui.active_screen,

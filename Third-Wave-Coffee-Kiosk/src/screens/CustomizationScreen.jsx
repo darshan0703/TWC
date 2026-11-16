@@ -22,6 +22,16 @@ import {
 
 
 /**
+ * Accurately determines if a product is a Cappuccino.
+ */
+export const isCappuccinoProduct = (p) => {
+  if (!p) return false;
+  const id = (p.id || '').toLowerCase();
+  const name = (p.name || '').toLowerCase();
+  return id === 'cappuccino' || id.includes('cappuccino') || name.includes('cappuccino');
+};
+
+/**
  * Accurately determines if a product is an eligible HOT COFFEE product for live visualization.
  * Per requirements:
  * - Eligible products: Hot espresso/filter coffees (Cappuccino, Americano, Latte, Flat White, Espresso Doppio, Mochas, etc.)
@@ -155,7 +165,7 @@ export const isCoffeeProduct = isEligibleHotCoffee;
  */
 const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCart, addDirectToCart: propAddDirectToCart, navigateTo: propNavigateTo }) => {
   const { selectedProduct, addToCart: kioskAddToCart, addDirectToCart: kioskAddDirectToCart, navigateTo: kioskNavigateTo, activeCustomization, syncCustomization } = useKiosk();
-  const { sessionId } = useVoiceBarista();
+  const { sessionId, speakPrompt } = useVoiceBarista();
 
   const addToCart = propAddToCart || kioskAddToCart;
   const addDirectToCart = propAddDirectToCart || kioskAddDirectToCart;
@@ -164,6 +174,7 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
   // Fallback to propProduct, selectedProduct, or Cappuccino if directly opened
   const product = propProduct || selectedProduct || PRODUCTS.find(p => p.id === 'cappuccino') || PRODUCTS[1];
 
+  const isCappuccino = useMemo(() => isCappuccinoProduct(product), [product]);
 
   // Determine if drink is Cold Coffee or Hot Cappuccino
   const isColdCoffee = useMemo(() => {
@@ -178,43 +189,53 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
     );
   }, [product]);
 
-  // Standard 4-Step Customization Sequence:
-  // 1. Cup Size, 2. Strength, 3. Milk, 4. Sweetness
-  const STEPS = [
-    {
-      key: 'size',
-      stepNum: 1,
-      label: 'Cup Size',
-      question: 'Which cup size would you prefer today?',
-      hint: 'Choose your preferred volume'
-    },
-    {
-      key: 'strength',
-      stepNum: 2,
-      label: 'Strength',
-      question: 'How bold would you like your espresso shot?',
-      hint: 'Arabica espresso extraction'
-    },
-    {
-      key: 'milk',
-      stepNum: 3,
-      label: 'Milk',
-      question: 'Which type of milk shall I steam for you?',
-      hint: 'Fresh dairy or artisanal plant milks'
-    },
-    {
-      key: 'sweetness',
-      stepNum: 4,
-      label: 'Sweetness',
-      question: 'What sweetness level suits your taste?',
-      hint: 'Standard café recipe or customized sugar'
+  // Dynamic Customization Sequence:
+  // For Cappuccino: strictly 3 steps: 1. Cup Size, 2. Strength, 3. Milk (sweetness completely excluded)
+  // For other hot coffees: 4 steps: 1. Cup Size, 2. Strength, 3. Milk, 4. Sweetness
+  const STEPS = useMemo(() => {
+    const list = [
+      {
+        key: 'size',
+        label: 'Cup Size',
+        question: 'Which cup size would you prefer today?',
+        hint: 'Choose your preferred volume'
+      },
+      {
+        key: 'strength',
+        label: 'Strength',
+        question: 'How bold would you like your espresso shot?',
+        hint: 'Arabica espresso extraction'
+      },
+      {
+        key: 'milk',
+        label: 'Milk',
+        question: 'Which type of milk shall I steam for you?',
+        hint: 'Fresh dairy or artisanal plant milks'
+      }
+    ];
+
+    if (!isCappuccino) {
+      list.push({
+        key: 'sweetness',
+        label: 'Sweetness',
+        question: 'What sweetness level suits your taste?',
+        hint: 'Standard café recipe or customized sugar'
+      });
     }
-  ];
+
+    return list.map((step, idx) => ({ ...step, stepNum: idx + 1 }));
+  }, [isCappuccino]);
 
   // Primary Customization State Bound to Canonical Context
   const [displayedStepIndex, setDisplayedStepIndex] = useState(() => activeCustomization?.stepIndex ?? 0);
   const [isConfirmedReview, setIsConfirmedReview] = useState(() => !!activeCustomization?.pendingConfirmation);
   const [transitionPhase, setTransitionPhase] = useState('idle'); // 'idle' | 'holding' | 'fading_out' | 'fading_in'
+
+  // Cappuccino live playback coordination state
+  const [cappuccinoAnim, setCappuccinoAnim] = useState(() => ({
+    stage: 'size',
+    trigger: 0
+  }));
 
   const activeStep = STEPS[displayedStepIndex] || STEPS[0];
 
@@ -385,6 +406,13 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
     cancelPendingTransition();
     setTransitionPhase('idle');
     syncCustomization({ size: newSize, isVoiceSelection: false });
+    if (isCappuccino) {
+      if (newSize === 'Large') {
+        setCappuccinoAnim({ stage: 'size', trigger: Date.now() });
+      } else {
+        setCappuccinoAnim({ stage: 'reset', trigger: Date.now() });
+      }
+    }
     if (sessionId) {
       syncCustomizationState({
         sessionId,
@@ -402,6 +430,9 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
     cancelPendingTransition();
     setTransitionPhase('idle');
     syncCustomization({ strength: newStrength, isVoiceSelection: false });
+    if (isCappuccino) {
+      setCappuccinoAnim({ stage: 'espresso', trigger: Date.now() });
+    }
     if (sessionId) {
       syncCustomizationState({
         sessionId,
@@ -419,6 +450,9 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
     cancelPendingTransition();
     setTransitionPhase('idle');
     syncCustomization({ milk: newMilk, isVoiceSelection: false });
+    if (isCappuccino) {
+      setCappuccinoAnim({ stage: 'milk', trigger: Date.now() });
+    }
     if (sessionId) {
       syncCustomizationState({
         sessionId,
@@ -431,6 +465,47 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
       });
     }
   };
+
+  const handleAnimationDone = useCallback((stage) => {
+    if (!isCappuccino) return;
+
+    if (stage === 'strength') {
+      // Espresso animation finished -> advance to Milk step (index 2)
+      setDisplayedStepIndex(prev => Math.max(prev, 2));
+      syncCustomization({ stepIndex: 2, isVoiceSelection: false });
+      if (sessionId) {
+        syncCustomizationState({
+          sessionId,
+          stepIndex: 2,
+          size,
+          strength,
+          milk,
+          sugar,
+          quantity,
+        });
+      }
+    } else if (stage === 'milk') {
+      // Milk animation finished -> trigger Cart Confirmation!
+      setIsConfirmedReview(true);
+      syncCustomization({ pendingConfirmation: true, isVoiceSelection: false });
+      if (sessionId) {
+        syncCustomizationState({
+          sessionId,
+          stepIndex: 2,
+          size,
+          strength,
+          milk,
+          sugar,
+          quantity,
+          pendingConfirmation: true,
+        });
+      }
+      // Voice Barista asks exactly: "Would you like me to add this to your cart?"
+      if (speakPrompt) {
+        speakPrompt("Would you like me to add this to your cart?");
+      }
+    }
+  }, [isCappuccino, size, strength, milk, sugar, quantity, sessionId, syncCustomization, speakPrompt]);
 
   const handleSelectSugar = (newSugar) => {
     cancelPendingTransition();
@@ -455,6 +530,15 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
     setIsConfirmedReview(false);
     setTransitionPhase('idle');
     syncCustomization({ stepIndex: idx, isVoiceSelection: false });
+    if (isCappuccino) {
+      if (idx === 0) {
+        setCappuccinoAnim({ stage: size === 'Large' ? 'size' : 'reset', trigger: Date.now() });
+      } else if (idx === 1) {
+        setCappuccinoAnim({ stage: 'size', trigger: Date.now() });
+      } else if (idx === 2) {
+        setCappuccinoAnim({ stage: 'espresso', trigger: Date.now() });
+      }
+    }
     if (sessionId) {
       syncCustomizationState({
         sessionId,
@@ -476,6 +560,13 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
       setIsConfirmedReview(false);
       setTransitionPhase('idle');
       syncCustomization({ stepIndex: nextIdx, isVoiceSelection: false });
+      if (isCappuccino) {
+        if (nextIdx === 1) {
+          setCappuccinoAnim({ stage: 'size', trigger: Date.now() });
+        } else if (nextIdx === 2) {
+          setCappuccinoAnim({ stage: 'espresso', trigger: Date.now() });
+        }
+      }
       if (sessionId) {
         syncCustomizationState({
           sessionId,
@@ -488,20 +579,25 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
         });
       }
     } else {
-      setIsConfirmedReview(true);
-      setTransitionPhase('idle');
-      syncCustomization({ pendingConfirmation: true, isVoiceSelection: false });
-      if (sessionId) {
-        syncCustomizationState({
-          sessionId,
-          stepIndex: displayedStepIndex,
-          size,
-          strength,
-          milk,
-          sugar,
-          quantity,
-          pendingConfirmation: true,
-        });
+      if (isCappuccino) {
+        // Trigger milk pour animation before confirmation
+        setCappuccinoAnim({ stage: 'milk', trigger: Date.now() });
+      } else {
+        setIsConfirmedReview(true);
+        setTransitionPhase('idle');
+        syncCustomization({ pendingConfirmation: true, isVoiceSelection: false });
+        if (sessionId) {
+          syncCustomizationState({
+            sessionId,
+            stepIndex: displayedStepIndex,
+            size,
+            strength,
+            milk,
+            sugar,
+            quantity,
+            pendingConfirmation: true,
+          });
+        }
       }
     }
   };
@@ -528,7 +624,7 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
       `${size} (${size === 'Large' ? '350 ml' : '240 ml'})`,
       strength,
       `${milk} Milk`,
-      sugar
+      isCappuccino ? null : sugar
     ].filter(Boolean);
 
     const configuredItem = {
@@ -541,7 +637,7 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
       size,
       temperature: isColdCoffee ? 'Iced' : 'Hot',
       milk,
-      sugar,
+      sugar: isCappuccino ? 'Regular Sugar' : sugar,
       strength,
       totalPrice,
       customizationsSummary
@@ -580,15 +676,18 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
           <MilkVisualization
             drinkStyle={isColdCoffee ? 'cold' : 'cappuccino'}
             stepKey={activeStep.key}
-            isReady={displayedStepIndex === 3 && isConfirmedReview}
+            isReady={isConfirmedReview}
             selectedMilk={milk}
             size={size}
             strength={strength}
             sweetness={sugar}
+            animStage={cappuccinoAnim.stage}
+            animTrigger={cappuccinoAnim.trigger}
             pourTrigger={pourTrigger}
             productImage={product.image}
             productName={product.name}
             unitPrice={unitPrice}
+            onAnimationDone={handleAnimationDone}
             className="flex-1 w-full h-full"
           >
             {/* FLOATING AI CASHIER CARD (Shifted slightly down into extended table area) */}
@@ -598,7 +697,7 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
               <div className="flex items-center justify-between border-b border-navy/10 pb-2">
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded-full bg-navy text-white text-[10px] font-black uppercase tracking-wider">
-                    {activeStep.stepNum}/4
+                    {activeStep.stepNum}/{STEPS.length}
                   </span>
                   <span className="text-[11px] font-black uppercase tracking-wider text-taupe-warm">
                     AI Cashier • {activeStep.label}
@@ -639,15 +738,29 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
                 {/* Conversational AI Question */}
               <div>
                 <h3 className="text-xs sm:text-sm font-black text-navy leading-snug">
-                  {activeStep.question}
+                  {isConfirmedReview && isCappuccino
+                    ? "Would you like me to add this to your cart?"
+                    : activeStep.question}
                 </h3>
                 <span className="text-[9.5px] text-taupe-warm font-medium">
-                  {activeStep.hint}
+                  {isConfirmedReview && isCappuccino
+                    ? `${size} • ${strength} • ${milk} Milk • ₹${totalPrice}`
+                    : activeStep.hint}
                 </span>
               </div>
 
               {/* Selection Options Body */}
               <div>
+                {isConfirmedReview && isCappuccino ? (
+                  <div className="space-y-1.5 py-1">
+                    <div className="bg-cream-100/90 rounded-xl p-2.5 border border-beige-muted/80 text-xs text-navy font-bold flex justify-between items-center shadow-xs">
+                      <span>{size} Cup ({size === 'Large' ? '350 ml' : '240 ml'})</span>
+                      <span className="text-[11px] text-taupe-warm">{strength}</span>
+                      <span className="text-[11px] text-emerald-800 font-extrabold">{milk} Milk</span>
+                    </div>
+                  </div>
+                ) : (
+                  <>
                 {/* Step 1: Cup Size */}
                 {activeStep.key === 'size' && (
                   <div className={`grid ${availableSizes.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
@@ -785,35 +898,41 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
                     })}
                   </div>
                 )}
+                  </>
+                )}
 
               </div>
 
               {/* Continue / Next Button */}
               <div className="pt-0.5">
-                {displayedStepIndex < 3 ? (
+                {isConfirmedReview ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleStepJump(0)}
+                      className="flex-1 py-2.5 rounded-xl border border-beige-dark text-navy text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-cream-200 transition-all cursor-pointer active:scale-98"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Change</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      className="flex-[2] py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-98"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <span>Add to Cart • ₹{totalPrice}</span>
+                    </button>
+                  </div>
+                ) : displayedStepIndex < STEPS.length - 1 ? (
                   <button
                     type="button"
                     onClick={handleNextCard}
                     className="w-full py-2.5 rounded-xl bg-navy text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm cursor-pointer hover:bg-navy-charcoal transition-all active:scale-99"
                   >
-                    <span>Continue to {STEPS[displayedStepIndex + 1].label}</span>
+                    <span>Continue to {STEPS[displayedStepIndex + 1]?.label || 'Next'}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
-                ) : isConfirmedReview ? (
-                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
-                    <span className="text-[10.5px] font-extrabold text-emerald-800 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Ready to Add to Cart!</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleStepJump(0)}
-                      className="text-[10px] font-bold text-taupe-warm hover:text-navy cursor-pointer flex items-center gap-1"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Change</span>
-                    </button>
-                  </div>
                 ) : (
                   <button
                     type="button"

@@ -26,14 +26,23 @@ except ImportError:
     from backend.semantic_resolver import semantic_resolver
 
 
+def is_cappuccino_product(product: Dict[str, Any]) -> bool:
+    """Checks whether a product is Cappuccino."""
+    if not product:
+        return False
+    pid = (product.get("id") or "").lower()
+    pname = (product.get("name") or "").lower()
+    return pid == "cappuccino" or "cappuccino" in pid or "cappuccino" in pname
+
+
 def get_customization_steps(product: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Derives the ordered list of customization steps based on product configuration.
-    Cappuccino (hot-only, espresso-based) generates:
+    Cappuccino (hot-only, espresso-based) generates strictly 3 steps:
     1. Cup Size (Regular / Large)
     2. Espresso Strength (Single Shot / Double Shot)
     3. Milk Selection (Regular Milk, Skimmed Milk, Soy Milk, Almond Milk, Oat Milk)
-    4. Sweetness (No Sugar, Less Sugar, Regular Sugar)
+    (Sweetness is completely excluded for Cappuccino)
     """
     steps = []
     step_num = 1
@@ -107,8 +116,8 @@ def get_customization_steps(product: Dict[str, Any]) -> List[Dict[str, Any]]:
         })
         step_num += 1
 
-    # 5. Sweetness step (for customizable drinks)
-    if product.get("customizable", True):
+    # 5. Sweetness step (for customizable drinks EXCEPT cappuccino)
+    if product.get("customizable", True) and not is_cappuccino_product(product):
         steps.append({
             "key": "sweetness",
             "stepNum": step_num,
@@ -221,6 +230,9 @@ def build_confirmation_summary(
     else:
         charges_str = "There are no additional customization charges."
 
+    if is_cappuccino_product(product):
+        return "Would you like me to add this to your cart?", total_price
+
     summary_text = (
         f"I've set up a {size} {prod_name} with a {strength}, {milk_label}, and {sugar}. "
         f"{charges_str} Your total is ₹{total_price}. Shall I add it to your tray?"
@@ -276,7 +288,7 @@ class CustomizationSession:
         return {
             "ui_action": "update_customization",
             "step_index": min(self.current_step_index, len(self.steps) - 1),
-            "step_key": self.current_step["key"] if self.current_step else "sweetness",
+            "step_key": self.current_step["key"] if self.current_step else ("milk" if is_cappuccino_product(self.product) else "sweetness"),
             "size": self.selections.get("size", "Regular"),
             "temperature": self.selections.get("temperature", "Hot"),
             "strength": self.selections.get("strength", "Double Shot"),
@@ -405,7 +417,10 @@ class CustomizationSession:
             # 2. Negative confirmation: ask what to change
             if any(w in clean_text for w in ["no", "cancel", "don't", "stop", "wait"]):
                 self.pending_confirmation = False
-                reply = "No problem! What would you like to change — cup size, espresso strength, milk, or sweetness?"
+                if is_cappuccino_product(self.product):
+                    reply = "No problem! What would you like to change — cup size, espresso strength, or milk choice?"
+                else:
+                    reply = "No problem! What would you like to change — cup size, espresso strength, milk, or sweetness?"
                 return {
                     "reply": reply,
                     "screen": "customization",
@@ -573,8 +588,11 @@ class CustomizationSession:
                 # All steps have been answered! Present final review & ask for confirmation
                 self.pending_confirmation = True
                 self.current_step_index = len(self.steps) - 1
-                summary_msg, _ = build_confirmation_summary(self.product, self.selections, self.quantity)
-                reply = f"{combined_price_stmt} {summary_msg}".strip()
+                if is_cappuccino_product(self.product):
+                    reply = "Would you like me to add this to your cart?"
+                else:
+                    summary_msg, _ = build_confirmation_summary(self.product, self.selections, self.quantity)
+                    reply = f"{combined_price_stmt} {summary_msg}".strip()
                 return {
                     "reply": reply,
                     "screen": "customization",

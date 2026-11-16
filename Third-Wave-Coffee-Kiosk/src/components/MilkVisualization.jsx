@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import './MilkVisualization.css';
-import { RotateCcw, Sparkles, Coffee } from 'lucide-react';
+import { RotateCcw, Sparkles } from 'lucide-react';
 
 /**
  * 5 Milk Variants configuration matching Third Wave Coffee specifications
@@ -12,16 +12,14 @@ export const MILK_VARIANTS = {
     tag: 'Fresh Dairy',
     desc: 'Natural fresh white',
     colorHex: '#FAF8F5',
-    tintFilter: 'none',
     blendColor: '#c49a6c'
   },
   Skimmed: {
     id: 'Skimmed',
     label: 'Skimmed Milk',
     tag: 'Light & Lean',
-    desc: 'Slightly translucent white',
+    desc: 'Low-fat dairy',
     colorHex: '#EAF0F6',
-    tintFilter: 'brightness(1.05) contrast(0.95) saturate(0.85)',
     blendColor: '#b89066'
   },
   Soy: {
@@ -30,7 +28,6 @@ export const MILK_VARIANTS = {
     tag: 'Plant Protein',
     desc: 'Creamy warm white',
     colorHex: '#F5EED8',
-    tintFilter: 'sepia(0.08) hue-rotate(-5deg) saturate(1.05)',
     blendColor: '#c09565'
   },
   Almond: {
@@ -39,7 +36,6 @@ export const MILK_VARIANTS = {
     tag: 'Nutty & Light',
     desc: 'Subtle warm beige',
     colorHex: '#ECE0CD',
-    tintFilter: 'sepia(0.18) hue-rotate(5deg) saturate(1.1)',
     blendColor: '#b08354'
   },
   Oat: {
@@ -48,9 +44,20 @@ export const MILK_VARIANTS = {
     tag: 'Barista Blend',
     desc: 'Soft velvety creamy ivory',
     colorHex: '#F5EBD7',
-    tintFilter: 'sepia(0.12) hue-rotate(10deg) saturate(1.12)',
     blendColor: '#bd8f5c'
   }
+};
+
+/**
+ * Approved Cappuccino Media Assets in public/assets/cappuccino/
+ */
+export const CAPPUCCINO_ASSETS = {
+  regularCup: '/assets/cappuccino/regular-cup.png',
+  regularToLarge: '/assets/cappuccino/regular-to-large.mp4',
+  regularEspresso: '/assets/cappuccino/regular-espresso.mp4',
+  largeEspresso: '/assets/cappuccino/large-espresso.mp4',
+  regularMilkPour: '/assets/cappuccino/regular-milk-pour.mp4',
+  largeMilkPour: '/assets/cappuccino/large-milk-pour.mp4'
 };
 
 /**
@@ -67,57 +74,16 @@ export const resolveMilkKey = (val) => {
 };
 
 /**
- * Step configuration with video start/end boundaries and high-res studio posters
- * 4-Step Flow: Size (0%) -> Strength (35%) -> Milk (75%) -> Sweetness / Ready (92%)
- */
-const STEP_CONFIG = {
-  size: {
-    start: 0.0,
-    end: 1.8,
-    hold: 1.6,
-    poster: '/craft/craft_step_1.jpg',
-    label: 'Empty Glass Cup',
-    fillPct: 0
-  },
-  strength: {
-    start: 1.8,
-    end: 3.8,
-    hold: 3.7,
-    poster: '/craft/craft_step_2.jpg',
-    label: 'Espresso Crema',
-    fillPct: 35
-  },
-  milk: {
-    start: 3.8,
-    end: 5.8,
-    hold: 5.7,
-    poster: '/craft/craft_step_3.jpg',
-    label: 'Steamed Milk',
-    fillPct: 75
-  },
-  sweetness: {
-    start: 5.8,
-    end: 9.8,
-    hold: 9.8,
-    poster: '/craft/craft_step_6.jpg',
-    label: 'Finished Latte Art',
-    fillPct: 92
-  },
-  ready: {
-    start: 9.2,
-    end: 10.0,
-    hold: 9.8,
-    poster: '/craft/craft_step_6.jpg',
-    label: 'Ready to Serve',
-    fillPct: 92
-  }
-};
-
-/**
  * MilkVisualization Component
  *
- * Layer 1: Large, extended visual background area with live coffee preparation.
- * Layer 2: Floating AI Cashier card slot rendered over its lower portion via children.
+ * Dedicated live visualization for hot coffee craft experience.
+ * For Cappuccino, coordinates seamless playback across the 6 approved assets:
+ * - STEP 1 (Size): Regular displays regular-cup.png; Large plays regular-to-large.mp4 & holds last frame.
+ * - STEP 2/3 (Espresso): Plays regular-espresso.mp4 or large-espresso.mp4 & holds last frame.
+ * - STEP 4 (Milk): Plays regular-milk-pour.mp4 or large-milk-pour.mp4 & holds last frame.
+ * - STEP 5 (Ready/Cart Confirm): Retains finished cappuccino visual with steam.
+ *
+ * Uses a dual-slot video mechanism to ensure zero visual jump or black frames during transitions.
  */
 export const MilkVisualization = ({
   drinkStyle = 'cappuccino', // 'cappuccino' | 'cold'
@@ -128,6 +94,8 @@ export const MilkVisualization = ({
   size = 'Regular',
   strength = 'Single Shot',
   sweetness = 'Regular Sugar',
+  animStage = null, // 'size' | 'espresso' | 'milk' | 'ready' | 'reset'
+  animTrigger = 0,
   pourTrigger = 0,
   productImage = null,
   productName = 'Cappuccino',
@@ -141,93 +109,172 @@ export const MilkVisualization = ({
   const activeMilkKey = resolveMilkKey(selectedMilk);
   const currentMilk = MILK_VARIANTS[activeMilkKey] || MILK_VARIANTS.Regular;
 
-  // Resolve active step key across 4 steps + ready
-  const activeKey = useMemo(() => {
-    if (stepKey) return stepKey;
-    if (isReady) return 'ready';
-    const keyMap = ['size', 'strength', 'milk', 'sweetness', 'ready'];
-    return keyMap[currentStep - 1] || 'size';
-  }, [isReady, stepKey, currentStep]);
+  // Video references for alternating dual-slot seamless handover
+  const videoRefA = useRef(null);
+  const videoRefB = useRef(null);
 
-  const config = STEP_CONFIG[activeKey] || STEP_CONFIG.size;
+  // Active slot currently visible ('A' or 'B')
+  const [activeSlot, setActiveSlot] = useState('A');
+  const [slotASrc, setSlotASrc] = useState(null);
+  const [slotBSrc, setSlotBSrc] = useState(null);
 
-  // High-resolution studio poster: step 4 (sweetness) & ready both display the finished 92% cup
-  const activePoster = useMemo(() => {
-    if (activeKey === 'ready' || activeKey === 'sweetness') return '/craft/craft_step_6.jpg';
-    if (activeKey === 'milk') return '/craft/craft_step_3.jpg';
-    if (activeKey === 'strength') return '/craft/craft_step_2.jpg';
-    return '/craft/craft_step_1.jpg';
-  }, [activeKey]);
+  // Static cup image visibility (true when showing regular-cup.png)
+  const [showStaticCup, setShowStaticCup] = useState(true);
 
-  const videoRef = useRef(null);
+  // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
-  const [videoLoaded, setVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [tiltAngle, setTiltAngle] = useState(0);
 
-  // Play video segment for active step
-  const playStepSegment = useCallback((key) => {
-    const video = videoRef.current;
-    if (!video || isCold || videoError) return;
+  // Current visual stage
+  // 'regular_empty' | 'large_empty' | 'espresso_filled' | 'milk_finished'
+  const [visualStage, setVisualStage] = useState('regular_empty');
 
-    const conf = STEP_CONFIG[key] || STEP_CONFIG.size;
-    video.currentTime = conf.start;
+  // Callback ref to prevent stale closures in onEnded
+  const onAnimationDoneRef = useRef(onAnimationDone);
+  onAnimationDoneRef.current = onAnimationDone;
 
-    const playPromise = video.play();
-    if (playPromise !== undefined) {
-      playPromise
-        .then(() => setIsPlaying(true))
-        .catch((err) => {
-          console.warn('Video auto-play handled:', err);
-          setIsPlaying(false);
-        });
+  const currentPlayingStageRef = useRef(null);
+
+  /**
+   * Seamless video player: alternates between Slot A and Slot B
+   * to guarantee zero blank frame or flicker during source transition.
+   */
+  const playVideoSource = useCallback((src, stageName) => {
+    if (!src || isCold) return;
+
+    setVideoError(false);
+    setIsPlaying(true);
+    currentPlayingStageRef.current = stageName;
+
+    // Determine target slot (opposite of current active slot)
+    const targetSlot = activeSlot === 'A' ? 'B' : 'A';
+    const targetVideo = targetSlot === 'A' ? videoRefA.current : videoRefB.current;
+
+    if (targetSlot === 'A') {
+      setSlotASrc(src);
+    } else {
+      setSlotBSrc(src);
     }
-  }, [isCold, videoError]);
 
-  // Handle time update boundaries
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || isCold) return;
+    if (targetVideo) {
+      targetVideo.src = src;
+      targetVideo.currentTime = 0;
+      targetVideo.muted = true;
+      targetVideo.play().catch((err) => {
+        console.warn(`[MilkVisualization] Slot ${targetSlot} play caught:`, err);
+        setIsPlaying(false);
+      });
+    }
+  }, [activeSlot, isCold]);
 
-    const conf = STEP_CONFIG[activeKey] || STEP_CONFIG.size;
+  /**
+   * Slot onPlaying handler: swap activeSlot to the newly playing video
+   * and hide the previous video or static image cleanly.
+   */
+  const handleSlotPlaying = useCallback((slotName) => {
+    setActiveSlot(slotName);
+    setShowStaticCup(false);
+    setIsPlaying(true);
 
-    const handleTimeUpdate = () => {
-      if (video.currentTime >= conf.end) {
-        if (activeKey === 'size') {
-          // Loop empty glass gently
-          video.currentTime = conf.start;
-        } else if (activeKey === 'ready') {
-          video.pause();
-          video.currentTime = conf.hold;
-          setIsPlaying(false);
-          if (onAnimationDone) onAnimationDone('ready');
-        } else {
-          video.pause();
-          video.currentTime = conf.hold;
-          setIsPlaying(false);
-          if (onAnimationDone) onAnimationDone(activeKey);
-        }
+    // Pause the other slot if running
+    const otherVideo = slotName === 'A' ? videoRefB.current : videoRefA.current;
+    if (otherVideo && !otherVideo.paused) {
+      otherVideo.pause();
+    }
+  }, []);
+
+  /**
+   * Slot onEnded handler: pause at final frame and fire onAnimationDone
+   */
+  const handleSlotEnded = useCallback((slotName) => {
+    setIsPlaying(false);
+    const stage = currentPlayingStageRef.current;
+
+    if (stage === 'size') {
+      setVisualStage('large_empty');
+      if (onAnimationDoneRef.current) {
+        onAnimationDoneRef.current('size');
       }
-    };
-
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-    };
-  }, [activeKey, isCold, onAnimationDone]);
-
-  // Trigger segment when step or pourTrigger changes
-  useEffect(() => {
-    if (!isCold) {
-      playStepSegment(activeKey);
+    } else if (stage === 'espresso') {
+      setVisualStage('espresso_filled');
+      if (onAnimationDoneRef.current) {
+        onAnimationDoneRef.current('strength');
+      }
+    } else if (stage === 'milk') {
+      setVisualStage('milk_finished');
+      if (onAnimationDoneRef.current) {
+        onAnimationDoneRef.current('milk');
+      }
     }
-  }, [activeKey, pourTrigger, isCold, playStepSegment]);
+  }, []);
+
+  // Handle external animStage and triggers from parent
+  const lastProcessedTriggerRef = useRef(null);
+
+  useEffect(() => {
+    if (isCold) return;
+
+    // 1. Reset or size changed to Regular
+    if (size === 'Regular' && (stepKey === 'size' || animStage === 'reset')) {
+      setShowStaticCup(true);
+      setVisualStage('regular_empty');
+      setIsPlaying(false);
+      const vA = videoRefA.current;
+      const vB = videoRefB.current;
+      if (vA) vA.pause();
+      if (vB) vB.pause();
+      return;
+    }
+
+    // 2. Size changed to Large on Step 1
+    if (size === 'Large' && stepKey === 'size') {
+      if (visualStage !== 'large_empty') {
+        playVideoSource(CAPPUCCINO_ASSETS.regularToLarge, 'size');
+      }
+      return;
+    }
+
+    // 3. Explicit animStage triggers from parent
+    if (animTrigger && animTrigger !== lastProcessedTriggerRef.current) {
+      lastProcessedTriggerRef.current = animTrigger;
+
+      if (animStage === 'espresso') {
+        const espSrc = isLarge ? CAPPUCCINO_ASSETS.largeEspresso : CAPPUCCINO_ASSETS.regularEspresso;
+        playVideoSource(espSrc, 'espresso');
+      } else if (animStage === 'milk') {
+        const milkSrc = isLarge ? CAPPUCCINO_ASSETS.largeMilkPour : CAPPUCCINO_ASSETS.regularMilkPour;
+        playVideoSource(milkSrc, 'milk');
+      }
+    }
+  }, [size, stepKey, animStage, animTrigger, isLarge, isCold, visualStage, playVideoSource]);
+
+  // Handle step jumping or ready state
+  useEffect(() => {
+    if (isCold) return;
+
+    if (isReady && visualStage !== 'milk_finished') {
+      setVisualStage('milk_finished');
+    }
+  }, [isReady, visualStage, isCold]);
 
   // Manual replay button
   const handleReplay = (e) => {
     e.stopPropagation();
-    if (!isCold) {
-      playStepSegment(activeKey);
+    if (isCold) return;
+
+    if (stepKey === 'size') {
+      if (isLarge) {
+        playVideoSource(CAPPUCCINO_ASSETS.regularToLarge, 'size');
+      } else {
+        setShowStaticCup(true);
+      }
+    } else if (stepKey === 'strength' || visualStage === 'espresso_filled') {
+      const espSrc = isLarge ? CAPPUCCINO_ASSETS.largeEspresso : CAPPUCCINO_ASSETS.regularEspresso;
+      playVideoSource(espSrc, 'espresso');
+    } else if (stepKey === 'milk' || isReady || visualStage === 'milk_finished') {
+      const milkSrc = isLarge ? CAPPUCCINO_ASSETS.largeMilkPour : CAPPUCCINO_ASSETS.regularMilkPour;
+      playVideoSource(milkSrc, 'milk');
     }
   };
 
@@ -268,57 +315,74 @@ export const MilkVisualization = ({
       }}
     >
       {/* =========================================================================
-          UPPER PORTION: LIVE COFFEE PREPARATION (Unobscured Cup & Pouring Action)
-          - Stable unclipped container
-          - Unified cup assembly scaled anchored to table base (50% 82%)
+          UPPER PORTION: APPROVED CAPPUCCINO MEDIA (Preserving Natural Cup Aspect Ratio)
           ========================================================================= */}
       {!isCold && (
         <div className="milk-vis-media-container">
-          <div
-            className="milk-vis-cup-assembly"
-            style={{
-              transform: isLarge ? 'scale(1.12)' : 'scale(1)',
-              transformOrigin: '50% 78%',
-              transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
-            }}
-          >
-            {!videoError && (
-              <video
-                ref={videoRef}
-                src="/cappuccino_craft.mp4"
-                className="milk-vis-video"
-                muted
-                playsInline
-                preload="auto"
-                poster={activePoster}
-                onLoadedData={() => setVideoLoaded(true)}
-                onError={() => setVideoError(true)}
-                style={{
-                  filter: activeKey === 'milk'
-                    ? currentMilk.tintFilter
-                    : activeKey === 'strength' && strength === 'Double Shot'
-                    ? 'contrast(1.08) brightness(0.96) saturate(1.12)'
-                    : 'none'
-                }}
-              />
-            )}
-
-            {(!videoLoaded || videoError) && (
+          <div className="milk-vis-cup-assembly">
+            {/* 1. Static Regular Cup (Initial State & Regular Size) */}
+            {showStaticCup && !videoError && (
               <img
-                src={activePoster}
-                alt={config.label}
-                className="milk-vis-fallback-img"
-                style={{
-                  filter: activeKey === 'milk'
-                    ? currentMilk.tintFilter
-                    : activeKey === 'strength' && strength === 'Double Shot'
-                    ? 'contrast(1.08) brightness(0.96) saturate(1.12)'
-                    : 'none'
-                }}
+                src={CAPPUCCINO_ASSETS.regularCup}
+                alt="Cappuccino Regular Cup"
+                className="milk-vis-video"
+                style={{ zIndex: 3 }}
               />
             )}
 
-            {activeKey === 'ready' && (
+            {/* 2. Video Slot A */}
+            <video
+              ref={videoRefA}
+              src={slotASrc || undefined}
+              className="milk-vis-video"
+              muted
+              playsInline
+              preload="auto"
+              onPlaying={() => handleSlotPlaying('A')}
+              onEnded={() => handleSlotEnded('A')}
+              onError={(e) => {
+                console.error('[MilkVisualization] Slot A video error:', e);
+                setVideoError(true);
+              }}
+              style={{
+                opacity: activeSlot === 'A' && !showStaticCup ? 1 : 0,
+                zIndex: activeSlot === 'A' ? 2 : 1,
+                pointerEvents: 'none'
+              }}
+            />
+
+            {/* 3. Video Slot B */}
+            <video
+              ref={videoRefB}
+              src={slotBSrc || undefined}
+              className="milk-vis-video"
+              muted
+              playsInline
+              preload="auto"
+              onPlaying={() => handleSlotPlaying('B')}
+              onEnded={() => handleSlotEnded('B')}
+              onError={(e) => {
+                console.error('[MilkVisualization] Slot B video error:', e);
+                setVideoError(true);
+              }}
+              style={{
+                opacity: activeSlot === 'B' && !showStaticCup ? 1 : 0,
+                zIndex: activeSlot === 'B' ? 2 : 1,
+                pointerEvents: 'none'
+              }}
+            />
+
+            {/* Fallback Image on Error */}
+            {videoError && (
+              <img
+                src={CAPPUCCINO_ASSETS.regularCup}
+                alt="Cappuccino Fallback"
+                className="milk-vis-fallback-img"
+              />
+            )}
+
+            {/* Rising steam overlay when drink is completed */}
+            {(isReady || visualStage === 'milk_finished') && (
               <div className="milk-vis-steam-overlay pointer-events-none">
                 <div className="steam-line steam-line-1" />
                 <div className="steam-line steam-line-2" />
@@ -329,7 +393,7 @@ export const MilkVisualization = ({
         </div>
       )}
 
-      {/* COLD COFFEE HIGHBALL GLASS STAGE */}
+      {/* COLD COFFEE HIGHBALL GLASS STAGE (Retained for Cold Drink compatibility) */}
       {isCold && (
         <div
           className="milk-vis-cold-stage"
@@ -339,7 +403,7 @@ export const MilkVisualization = ({
             transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
           }}
         >
-          {activeKey === 'ready' ? (
+          {isReady ? (
             <div className="milk-vis-cold-finished">
               <img
                 src="/craft/cold_coffee_thumb.jpg"
@@ -355,22 +419,22 @@ export const MilkVisualization = ({
                 <div
                   className="cold-espresso-layer"
                   style={{
-                    height: activeKey !== 'size' ? (strength === 'Double Shot' ? '42%' : '32%') : '0%',
+                    height: stepKey !== 'size' ? (strength === 'Double Shot' ? '42%' : '32%') : '0%',
                     backgroundColor: strength === 'Double Shot' ? '#221109' : '#381C10'
                   }}
                 />
                 <div
                   className="cold-milk-layer"
                   style={{
-                    height: (activeKey === 'milk' || activeKey === 'sweetness' || activeKey === 'ready') ? '76%' : '0%',
+                    height: (stepKey === 'milk' || stepKey === 'sweetness' || isReady) ? '76%' : '0%',
                     backgroundColor: currentMilk.colorHex
                   }}
                 />
                 <div
                   className="cold-foam-head"
                   style={{
-                    opacity: (activeKey === 'sweetness' || activeKey === 'ready') ? 1 : 0,
-                    height: (activeKey === 'sweetness' || activeKey === 'ready') ? '16%' : '0%'
+                    opacity: (stepKey === 'sweetness' || isReady) ? 1 : 0,
+                    height: (stepKey === 'sweetness' || isReady) ? '16%' : '0%'
                   }}
                 />
                 <div className="cold-ice-cube ice-1" />
@@ -392,15 +456,15 @@ export const MilkVisualization = ({
         <span
           className="milk-vis-dot"
           style={{
-            backgroundColor: activeKey !== 'size' ? currentMilk.colorHex : '#A89F91'
+            backgroundColor: stepKey !== 'size' ? currentMilk.colorHex : '#A89F91'
           }}
         />
         <span className="milk-vis-pill-text">
-          {activeKey === 'size' && (isCold ? (isLarge ? 'Highball Glass • Large (450ml)' : 'Highball Glass • Regular (350ml)') : (isLarge ? 'Glass Cup • Large (350ml)' : 'Glass Cup • Regular (240ml)'))}
-          {activeKey === 'strength' && `Espresso (${strength})`}
-          {activeKey === 'milk' && currentMilk.label}
-          {activeKey === 'sweetness' && (isCold ? `Chilled • ${sweetness}` : `Latte Art • ${sweetness}`)}
-          {activeKey === 'ready' && 'Ready to Serve'}
+          {stepKey === 'size' && (isCold ? (isLarge ? 'Highball Glass • Large (450ml)' : 'Highball Glass • Regular (350ml)') : (isLarge ? 'Glass Cup • Large (350ml)' : 'Glass Cup • Regular (240ml)'))}
+          {stepKey === 'strength' && `Espresso (${strength})`}
+          {stepKey === 'milk' && currentMilk.label}
+          {stepKey === 'sweetness' && (isCold ? `Chilled • ${sweetness}` : `Latte Art • ${sweetness}`)}
+          {(stepKey === 'ready' || isReady) && 'Ready to Serve'}
         </span>
       </div>
 
