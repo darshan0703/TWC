@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import './WalletTopUpScreen.css';
 import { KioskHeader } from '../components/KioskHeader';
-import { DemoQrCode } from '../components/DemoQrCode';
 import { useKiosk } from '../context/KioskContext';
-import { Wallet, ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
+import { Wallet, ShieldCheck, ArrowRight, AlertCircle, FileText } from 'lucide-react';
 
 export const WalletTopUpScreen = () => {
   const {
@@ -19,7 +18,11 @@ export const WalletTopUpScreen = () => {
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [error, setError] = useState('');
 
-  const PRESET_AMOUNTS = [300, 600, 1000];
+  const PRESET_AMOUNTS = [
+    { amount: 300, label: 'Top-up', cashback: null },
+    { amount: 600, label: 'Popular', cashback: 600 },
+    { amount: 1000, label: 'Top-up', cashback: 600 },
+  ];
 
   const handleSelectPreset = (amt) => {
     setIsCustomMode(false);
@@ -119,24 +122,29 @@ export const WalletTopUpScreen = () => {
 
           <div className="grid grid-cols-4 gap-2">
             {PRESET_AMOUNTS.map((amt) => {
-              const isSelected = !isCustomMode && selectedTopupAmount === amt;
+              const isSelected = !isCustomMode && selectedTopupAmount === amt.amount;
               return (
                 <button
-                  key={amt}
+                  key={amt.amount}
                   type="button"
-                  onClick={() => handleSelectPreset(amt)}
-                  className={`py-2.5 px-2 rounded-xl border-2 text-center transition-all active:scale-95 ${
+                  onClick={() => handleSelectPreset(amt.amount)}
+                  className={`py-2 px-1.5 min-h-[76px] rounded-xl border-2 flex flex-col items-center justify-center transition-all active:scale-95 ${
                     isSelected
                       ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
                       : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold'
                   }`}
                 >
                   <span className="text-[9px] text-taupe-warm font-semibold block uppercase">
-                    {amt === 600 ? 'Popular' : 'Top-up'}
+                    {amt.label}
                   </span>
-                  <span className="text-base font-black text-navy font-sans">
-                    ₹{amt}
+                  <span className="text-base font-black text-navy font-sans leading-tight">
+                    ₹{amt.amount}
                   </span>
+                  {amt.cashback != null && (
+                    <span className="mt-1 inline-block bg-emerald-600 text-white text-[9px] font-black tracking-tight px-1.5 py-0.5 rounded-full leading-none">
+                      +₹{amt.cashback}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -144,7 +152,7 @@ export const WalletTopUpScreen = () => {
             <button
               type="button"
               onClick={handleCustomSelect}
-              className={`py-2.5 px-2 rounded-xl border-2 text-center transition-all active:scale-95 ${
+              className={`py-2 px-1.5 min-h-[76px] rounded-xl border-2 flex flex-col items-center justify-center transition-all active:scale-95 ${
                 isCustomMode
                   ? 'bg-beige border-navy text-navy font-black shadow-sm ring-1 ring-navy/20'
                   : 'bg-cream-100/60 border-beige-muted text-navy/80 font-bold'
@@ -153,7 +161,7 @@ export const WalletTopUpScreen = () => {
               <span className="text-[9px] text-taupe-warm font-semibold block uppercase">
                 Other
               </span>
-              <span className="text-xs font-black text-navy font-sans">
+              <span className="text-xs font-black text-navy font-sans leading-tight">
                 Custom
               </span>
             </button>
@@ -198,8 +206,27 @@ export const WalletTopUpScreen = () => {
           </div>
         </div>
 
-        {/* Demo QR Code Panel */}
-        <DemoQrCode amount={effectiveAmount} />
+        {/* Terms & Conditions Card */}
+        <div className="bg-white rounded-2xl p-4 border border-beige-muted/80 shadow-sm space-y-3">
+          <div className="flex items-center gap-2 border-b border-beige-muted/60 pb-2">
+            <FileText className="w-4 h-4 text-navy shrink-0" />
+            <h4 className="text-xs font-black uppercase tracking-wider text-navy font-sans">
+              Terms & Conditions
+            </h4>
+          </div>
+
+          <ol className="space-y-2.5 list-decimal list-outside pl-4 text-[11px] leading-relaxed text-taupe-warm font-medium">
+            <li className="pl-1">
+              The Main Wallet balance is valid for 360 days from the date of credit. However, any gift voucher amount credited to the Main Wallet will remain valid only until the specific expiry date applicable to that voucher.
+            </li>
+            <li className="pl-1">
+              Money in Third Wave Wallet cannot be transferred to your bank account as per RBI Guidelines.
+            </li>
+            <li className="pl-1">
+              It can be used for your Third Wave orders.
+            </li>
+          </ol>
+        </div>
 
         {/* Security Note */}
         <div className="flex items-center gap-1.5 text-[10px] text-taupe-warm font-medium">
@@ -210,27 +237,27 @@ export const WalletTopUpScreen = () => {
       </main>
 
       {/* Sticky Bottom Actions inside Portrait Kiosk */}
-      <footer className="sticky bottom-0 z-30 w-full bg-cream-100/95 backdrop-blur-md border-t border-beige-muted/80 px-4 py-3 shadow-lg space-y-1.5 shrink-0">
+      <footer className="sticky bottom-0 z-30 w-full bg-cream-100/95 backdrop-blur-md border-t border-beige-muted/80 px-4 py-3 shadow-lg flex items-center gap-3 shrink-0">
         <button
           type="button"
           onClick={handlePay}
           disabled={effectiveAmount <= 0}
-          className={`w-full py-3.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-kiosk transition-all active:scale-[0.98] ${
+          className={`flex-1 h-12 px-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-kiosk transition-all active:scale-[0.98] ${
             effectiveAmount > 0
               ? 'bg-navy hover:bg-navy-charcoal text-white cursor-pointer border border-navy'
               : 'bg-beige-muted text-navy/40 cursor-not-allowed border border-beige-muted'
           }`}
         >
-          <span>PAY ₹{effectiveAmount}</span>
-          <ArrowRight className="w-4 h-4 text-white" />
+          <span className="truncate">PAY ₹{effectiveAmount}</span>
+          <ArrowRight className="w-4 h-4 text-white shrink-0" />
         </button>
 
         <button
           type="button"
           onClick={() => navigateTo('cart')}
-          className="w-full py-1.5 text-[11px] font-bold uppercase tracking-wider text-taupe-warm hover:text-navy text-center transition-colors"
+          className="flex-1 h-12 px-3 rounded-xl bg-white hover:bg-cream-200 active:scale-[0.98] border border-beige-muted text-navy text-xs font-extrabold uppercase tracking-wider flex items-center justify-center transition-all shadow-sm"
         >
-          BACK TO CART
+          <span className="truncate">BACK TO CART</span>
         </button>
       </footer>
 
