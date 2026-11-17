@@ -234,6 +234,7 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
   // Cappuccino live playback coordination state
   const [cappuccinoAnim, setCappuccinoAnim] = useState(() => ({
     stage: 'size',
+    size: activeCustomization?.size ?? 'Regular',
     trigger: 0
   }));
 
@@ -252,6 +253,14 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
   const isMountedRef = useRef(true);
   const lastProcessedVoiceTimestampRef = useRef(null);
   const lastProductIdRef = useRef(product?.id);
+
+  // Previous customization values ref to detect what was modified by voice
+  const prevCustomizationRef = useRef({
+    size: activeCustomization?.size ?? 'Regular',
+    strength: activeCustomization?.strength ?? 'Double Shot',
+    milk: activeCustomization?.milk ?? 'Regular',
+    sugar: activeCustomization?.sugar ?? 'Regular Sugar',
+  });
 
   const cancelPendingTransition = useCallback(() => {
     if (holdTimerRef.current) {
@@ -292,42 +301,87 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
     const voiceTimestamp = activeCustomization?.voiceTimestamp;
     const targetStepIndex = activeCustomization?.stepIndex ?? 0;
     const isPendingConfirm = !!activeCustomization?.pendingConfirmation;
+    const selectedStep = activeCustomization?.selectedStep;
 
     if (isVoice && voiceTimestamp && voiceTimestamp !== lastProcessedVoiceTimestampRef.current) {
       lastProcessedVoiceTimestampRef.current = voiceTimestamp;
 
-      const shouldAdvanceStep = targetStepIndex !== displayedStepIndex;
-      const shouldTransitionToConfirm = isPendingConfirm && !isConfirmedReview;
+      // 1. Identify which customization option was selected by voice
+      const prev = prevCustomizationRef.current;
+      const sizeVal = activeCustomization?.size ?? size;
+      const strengthVal = activeCustomization?.strength ?? strength;
+      const milkVal = activeCustomization?.milk ?? milk;
 
-      if (shouldAdvanceStep || shouldTransitionToConfirm) {
-        cancelPendingTransition();
-        setTransitionPhase('holding');
+      const sizeChanged = sizeVal !== prev.size;
+      const strengthChanged = strengthVal !== prev.strength;
+      const milkChanged = milkVal !== prev.milk;
 
-        const prefersReducedMotion = typeof window !== 'undefined' &&
-          window.matchMedia &&
-          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let triggeredStage = null;
+      if (selectedStep === 'size' || sizeChanged) {
+        triggeredStage = sizeVal === 'Large' ? 'size' : 'reset';
+      } else if (selectedStep === 'strength' || strengthChanged) {
+        triggeredStage = 'espresso';
+      } else if (selectedStep === 'milk' || milkChanged) {
+        triggeredStage = 'milk';
+      }
 
-        const fadeDuration = prefersReducedMotion ? 0 : 250;
-        const holdDuration = 800;
+      // 2. Trigger the exact same cappuccino animation as touch
+      if (isCappuccino && triggeredStage) {
+        setCappuccinoAnim({ stage: triggeredStage, size: sizeVal, trigger: Date.now() });
+      }
 
-        holdTimerRef.current = setTimeout(() => {
-          if (!isMountedRef.current) return;
-          setTransitionPhase('fading_out');
+      // Update previous customization ref
+      prevCustomizationRef.current = {
+        size: sizeVal,
+        strength: strengthVal,
+        milk: milkVal,
+        sugar: activeCustomization?.sugar ?? sugar,
+      };
 
-          fadeTimerRef.current = setTimeout(() => {
+      // 3. Step transition coordination:
+      // For Cappuccino animated stages (size with Large video, espresso, milk),
+      // step advancement is 100% driven by handleAnimationDone when the video ends.
+      // Do NOT run holdTimerRef for these animated stages!
+      const isAnimatedCappuccinoStage = isCappuccino && (
+        triggeredStage === 'espresso' ||
+        triggeredStage === 'milk' ||
+        (triggeredStage === 'size' && sizeVal === 'Large')
+      );
+
+      if (!isAnimatedCappuccinoStage) {
+        const shouldAdvanceStep = targetStepIndex !== displayedStepIndex;
+        const shouldTransitionToConfirm = isPendingConfirm && !isConfirmedReview;
+
+        if (shouldAdvanceStep || shouldTransitionToConfirm) {
+          cancelPendingTransition();
+          setTransitionPhase('holding');
+
+          const prefersReducedMotion = typeof window !== 'undefined' &&
+            window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+          const fadeDuration = prefersReducedMotion ? 0 : 250;
+          const holdDuration = 800;
+
+          holdTimerRef.current = setTimeout(() => {
             if (!isMountedRef.current) return;
-            setDisplayedStepIndex(targetStepIndex);
-            if (isPendingConfirm) {
-              setIsConfirmedReview(true);
-            }
-            setTransitionPhase('fading_in');
+            setTransitionPhase('fading_out');
 
             fadeTimerRef.current = setTimeout(() => {
               if (!isMountedRef.current) return;
-              setTransitionPhase('idle');
+              setDisplayedStepIndex(targetStepIndex);
+              if (isPendingConfirm) {
+                setIsConfirmedReview(true);
+              }
+              setTransitionPhase('fading_in');
+
+              fadeTimerRef.current = setTimeout(() => {
+                if (!isMountedRef.current) return;
+                setTransitionPhase('idle');
+              }, fadeDuration);
             }, fadeDuration);
-          }, fadeDuration);
-        }, holdDuration);
+          }, holdDuration);
+        }
       }
     } else if (!isVoice) {
       // Direct touch or programmatic synchronization when idle
@@ -341,14 +395,31 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
           transitionPhase === 'idle') {
         setIsConfirmedReview(activeCustomization.pendingConfirmation);
       }
+      prevCustomizationRef.current = {
+        size: activeCustomization?.size ?? size,
+        strength: activeCustomization?.strength ?? strength,
+        milk: activeCustomization?.milk ?? milk,
+        sugar: activeCustomization?.sugar ?? sugar,
+      };
     }
   }, [
     activeCustomization?.isVoiceSelection,
     activeCustomization?.voiceTimestamp,
     activeCustomization?.stepIndex,
     activeCustomization?.pendingConfirmation,
+    activeCustomization?.selectedStep,
+    activeCustomization?.selectedOption,
+    activeCustomization?.size,
+    activeCustomization?.strength,
+    activeCustomization?.milk,
+    activeCustomization?.sugar,
     displayedStepIndex,
     isConfirmedReview,
+    isCappuccino,
+    size,
+    strength,
+    milk,
+    sugar,
     transitionPhase,
     cancelPendingTransition,
   ]);
@@ -408,9 +479,9 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
     syncCustomization({ size: newSize, isVoiceSelection: false });
     if (isCappuccino) {
       if (newSize === 'Large') {
-        setCappuccinoAnim({ stage: 'size', trigger: Date.now() });
+        setCappuccinoAnim({ stage: 'size', size: 'Large', trigger: Date.now() });
       } else {
-        setCappuccinoAnim({ stage: 'reset', trigger: Date.now() });
+        setCappuccinoAnim({ stage: 'reset', size: 'Regular', trigger: Date.now() });
       }
     }
     if (sessionId) {
@@ -431,7 +502,7 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
     setTransitionPhase('idle');
     syncCustomization({ strength: newStrength, isVoiceSelection: false });
     if (isCappuccino) {
-      setCappuccinoAnim({ stage: 'espresso', trigger: Date.now() });
+      setCappuccinoAnim({ stage: 'espresso', size, trigger: Date.now() });
     }
     if (sessionId) {
       syncCustomizationState({
@@ -451,7 +522,7 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
     setTransitionPhase('idle');
     syncCustomization({ milk: newMilk, isVoiceSelection: false });
     if (isCappuccino) {
-      setCappuccinoAnim({ stage: 'milk', trigger: Date.now() });
+      setCappuccinoAnim({ stage: 'milk', size, trigger: Date.now() });
     }
     if (sessionId) {
       syncCustomizationState({
@@ -469,7 +540,22 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
   const handleAnimationDone = useCallback((stage) => {
     if (!isCappuccino) return;
 
-    if (stage === 'strength') {
+    if (stage === 'size') {
+      // Size animation (regular-to-large) finished -> advance to Strength step (index 1)
+      setDisplayedStepIndex(prev => Math.max(prev, 1));
+      syncCustomization({ stepIndex: 1, isVoiceSelection: false });
+      if (sessionId) {
+        syncCustomizationState({
+          sessionId,
+          stepIndex: 1,
+          size,
+          strength,
+          milk,
+          sugar,
+          quantity,
+        });
+      }
+    } else if (stage === 'strength') {
       // Espresso animation finished -> advance to Milk step (index 2)
       setDisplayedStepIndex(prev => Math.max(prev, 2));
       syncCustomization({ stepIndex: 2, isVoiceSelection: false });
@@ -500,8 +586,11 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
           pendingConfirmation: true,
         });
       }
-      // Voice Barista asks exactly: "Would you like me to add this to your cart?"
-      if (speakPrompt) {
+      // Voice Barista asks post-customization recommendation prompt
+      const firstRec = PASTRY_RECOMMENDATIONS && PASTRY_RECOMMENDATIONS.length > 0 ? PASTRY_RECOMMENDATIONS[0] : null;
+      if (firstRec && speakPrompt) {
+        speakPrompt(`This goes really well with your ${product.name}. Would you like me to add ${firstRec.name} to your order?`);
+      } else if (speakPrompt) {
         speakPrompt("Would you like me to add this to your cart?");
       }
     }
@@ -548,6 +637,26 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
         milk,
         sugar,
         quantity,
+      });
+    }
+  };
+
+  const handleReopenCustomization = () => {
+    cancelPendingTransition();
+    setDisplayedStepIndex(0);
+    setIsConfirmedReview(false);
+    setTransitionPhase('idle');
+    syncCustomization({ stepIndex: 0, pendingConfirmation: false, isVoiceSelection: false });
+    if (sessionId) {
+      syncCustomizationState({
+        sessionId,
+        stepIndex: 0,
+        size,
+        strength,
+        milk,
+        sugar,
+        quantity,
+        pendingConfirmation: false,
       });
     }
   };
@@ -661,24 +770,23 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
         onBackOverride={() => navigateTo('menu')}
       />
 
-      {/* Main Responsive Viewport: Distributes expanded coffee visualization and moves content downward */}
-      <main className="customization-screen__main flex-1 min-h-0 px-3 sm:px-4 pt-1 pb-1 overflow-y-auto flex flex-col justify-between">
+      {/* Main Responsive Viewport: Separates video and AI Cashier customization card */}
+      <main className="customization-screen__main flex-1 min-h-0 px-3 sm:px-4 pt-1 pb-2 overflow-y-auto flex flex-col">
         
         {/* =========================================================================
-            2. EXPANDED COFFEE PREPARATION SCENE
-            - Consumes all remaining vertical screen height
-            - Original cup remains in upper position with natural proportions
-            - Extended marble table & café background fills previously empty region
-            - Floating AI Cashier card shifted downward into the extended scene
-            - Existing Quantity UI positioned directly below AI Cashier card
+            1. COFFEE PREPARATION VISUALIZATION
+            - Independent visual component rendered at top of viewport
+            - Video cropped naturally to center cup without distortion
+            - No overlays or floating children inside
             ========================================================================= */}
-        <div className="customization-screen__vis-container flex-1 min-h-[500px] sm:min-h-[540px] w-full flex flex-col mb-1.5">
+        <div className="customization-screen__vis-container customization-screen__vis-container--coffee">
           <MilkVisualization
             drinkStyle={isColdCoffee ? 'cold' : 'cappuccino'}
             stepKey={activeStep.key}
             isReady={isConfirmedReview}
             selectedMilk={milk}
             size={size}
+            animSize={cappuccinoAnim.size || size}
             strength={strength}
             sweetness={sugar}
             animStage={cappuccinoAnim.stage}
@@ -688,9 +796,18 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
             productName={product.name}
             unitPrice={unitPrice}
             onAnimationDone={handleAnimationDone}
-            className="flex-1 w-full h-full"
-          >
-            {/* FLOATING AI CASHIER CARD (Shifted slightly down into extended table area) */}
+            className="w-full h-full"
+          />
+        </div>
+
+        {/* =========================================================================
+            2. STATE A: AI CASHIER CUSTOMIZATION CARD (During customization)
+            - Normal document flow directly underneath the video
+            - Never overlaps or covers the video/cup
+            - Hidden once preparation finishes
+            ========================================================================= */}
+        {!isConfirmedReview && (
+          <div className="customization-screen__card-slot w-full shrink-0">
             <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3 sm:p-3.5 border border-white/80 shadow-[0_8px_30px_rgba(28,42,57,0.12)] space-y-2.5 transition-all duration-300">
               
               {/* Card Header: Step Indicator & Step Jump Dots */}
@@ -902,29 +1019,11 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
                 )}
 
               </div>
+              </div>
 
               {/* Continue / Next Button */}
               <div className="pt-0.5">
-                {isConfirmedReview ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleStepJump(0)}
-                      className="flex-1 py-2.5 rounded-xl border border-beige-dark text-navy text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-cream-200 transition-all cursor-pointer active:scale-98"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Change</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAddToCart}
-                      className="flex-[2] py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-98"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                      <span>Add to Cart • ₹{totalPrice}</span>
-                    </button>
-                  </div>
-                ) : displayedStepIndex < STEPS.length - 1 ? (
+                {displayedStepIndex < STEPS.length - 1 ? (
                   <button
                     type="button"
                     onClick={handleNextCard}
@@ -947,96 +1046,108 @@ const CoffeeCustomizationView = ({ product: propProduct, addToCart: propAddToCar
 
             </div>
           </div>
-
-            {/* EXISTING QUANTITY UI (Positioned inside the extended scene, directly below the card) */}
-            <div className="bg-white/95 backdrop-blur-md rounded-xl p-2.5 px-3 border border-white/80 shadow-md flex items-center justify-between mt-2">
-              <span className="text-xs font-black uppercase tracking-wider text-navy">
-                Quantity
-              </span>
-
-              <div className="flex items-center gap-3 bg-cream-100 rounded-lg border border-beige-muted p-1">
-                <button
-                  type="button"
-                  onClick={() => handleQuantityChange(quantity - 1)}
-                  disabled={quantity <= 1}
-                  className="w-7 h-7 rounded-md bg-white text-navy flex items-center justify-center hover:bg-cream-200 disabled:opacity-40 transition-all active:scale-95 shadow-xs cursor-pointer"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-
-                <span className="text-sm font-black text-navy w-4 text-center font-sans">
-                  {quantity}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuantityChange(quantity + 1)}
-                  className="w-7 h-7 rounded-md bg-white text-navy flex items-center justify-center hover:bg-cream-200 transition-all active:scale-95 shadow-xs cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-          </MilkVisualization>
-        </div>
+        )}
 
         {/* =========================================================================
-            3. PAIRS WELL WITH RECOMMENDATIONS
-            Positioned immediately below the expanded visualization with minimal gap,
-            sitting right above the fixed Add to Cart bar.
+            3. STATE B: POST-PREPARATION (Active after complete preparation finishes)
+            - Displays grey CUSTOMIZATION reopen button aligned to left
+            - Displays PAIRS WELL WITH recommendations underneath it
+            - Completed coffee visual and steam remain visible above
             ========================================================================= */}
-        <div className="customization-screen__pairs-section shrink-0 pt-0.5 pb-1">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[11px] font-extrabold tracking-wider uppercase text-taupe-warm font-sans">
-              Pairs Well With
-            </span>
-            <span className="text-[10px] text-taupe-warm font-medium">
-              Barista pairing
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            {PASTRY_RECOMMENDATIONS.slice(0, 2).map((pastry) => (
-              <div
-                key={pastry.id}
-                className="bg-white rounded-2xl p-2.5 border border-beige-muted/80 shadow-sm flex items-center justify-between gap-2"
+        {isConfirmedReview && (
+          <div className="customization-screen__post-prep-slot w-full flex flex-col gap-2 shrink-0">
+            {/* 7. CUSTOMIZATION Reopen Button */}
+            <div className="flex items-center justify-start">
+              <button
+                type="button"
+                onClick={handleReopenCustomization}
+                className="customization-screen__reopen-btn"
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <img
-                    src={pastry.image}
-                    alt={pastry.name}
-                    className="w-10 h-10 rounded-xl object-cover border border-beige-muted shrink-0"
-                  />
-                  <div className="truncate">
-                    <span className="text-[11px] font-black text-navy truncate block">
-                      {pastry.name}
-                    </span>
-                    <span className="text-[10px] font-extrabold text-navy">
-                      ₹{pastry.price}
-                    </span>
-                  </div>
-                </div>
+                <span>CUSTOMIZATION</span>
+              </button>
+            </div>
 
-                <button
-                  type="button"
-                  onClick={() => addDirectToCart(pastry)}
-                  className="w-7 h-7 rounded-lg bg-cream-100 hover:bg-cream-200 border border-beige-muted text-navy flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0"
-                  title={`Add ${pastry.name}`}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
+            {/* PAIRS WELL WITH RECOMMENDATIONS (Only shown in post-preparation state) */}
+            <div className="customization-screen__pairs-section">
+              <div className="flex items-center justify-between px-1 mb-1.5">
+                <span className="text-[11px] font-extrabold tracking-wider uppercase text-taupe-warm font-sans">
+                  Pairs Well With
+                </span>
+                <span className="text-[10px] text-taupe-warm font-medium">
+                  Barista pairing
+                </span>
               </div>
-            ))}
+
+              <div className="grid grid-cols-2 gap-2">
+                {PASTRY_RECOMMENDATIONS.slice(0, 2).map((pastry) => (
+                  <div
+                    key={pastry.id}
+                    className="bg-white rounded-2xl p-2.5 border border-beige-muted/80 shadow-sm flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <img
+                        src={pastry.image}
+                        alt={pastry.name}
+                        className="w-10 h-10 rounded-xl object-cover border border-beige-muted shrink-0"
+                      />
+                      <div className="truncate">
+                        <span className="text-[11px] font-black text-navy truncate block">
+                          {pastry.name}
+                        </span>
+                        <span className="text-[10px] font-extrabold text-navy">
+                          ₹{pastry.price}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => addDirectToCart(pastry)}
+                      className="w-7 h-7 rounded-lg bg-cream-100 hover:bg-cream-200 border border-beige-muted text-navy flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0"
+                      title={`Add ${pastry.name}`}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
       </main>
 
       {/* =========================================================================
-          4. FIXED ADD TO CART BUTTON
+          4. FIXED BOTTOM BAR: QUANTITY & ADD TO CART (Shared horizontal row)
           ========================================================================= */}
       <footer className="customization-screen__bottom-bar">
+        {/* Quantity Controls (Left side, approx 110-120px) */}
+        <div className="customization-screen__qty-selector">
+          <button
+            type="button"
+            onClick={() => handleQuantityChange(quantity - 1)}
+            disabled={quantity <= 1}
+            className="customization-screen__qty-btn"
+            aria-label="Decrease quantity"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+
+          <span className="customization-screen__qty-val">
+            {quantity}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => handleQuantityChange(quantity + 1)}
+            className="customization-screen__qty-btn"
+            aria-label="Increase quantity"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Add to Cart Button (Right side, remaining available width) */}
         <button
           type="button"
           onClick={handleAddToCart}

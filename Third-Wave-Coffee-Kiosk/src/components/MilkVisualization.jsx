@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import './MilkVisualization.css';
-import { RotateCcw, Sparkles } from 'lucide-react';
 
 /**
  * 5 Milk Variants configuration matching Third Wave Coffee specifications
@@ -92,6 +91,7 @@ export const MilkVisualization = ({
   isReady = false,
   selectedMilk = 'Regular',
   size = 'Regular',
+  animSize = null,
   strength = 'Single Shot',
   sweetness = 'Regular Sugar',
   animStage = null, // 'size' | 'espresso' | 'milk' | 'ready' | 'reset'
@@ -105,7 +105,8 @@ export const MilkVisualization = ({
   children
 }) => {
   const isCold = drinkStyle === 'cold';
-  const isLarge = size === 'Large';
+  const effectiveSize = animSize || size;
+  const isLarge = effectiveSize === 'Large';
   const activeMilkKey = resolveMilkKey(selectedMilk);
   const currentMilk = MILK_VARIANTS[activeMilkKey] || MILK_VARIANTS.Regular;
 
@@ -113,13 +114,13 @@ export const MilkVisualization = ({
   const videoRefA = useRef(null);
   const videoRefB = useRef(null);
 
-  // Active slot currently visible ('A' or 'B')
-  const [activeSlot, setActiveSlot] = useState('A');
-  const [slotASrc, setSlotASrc] = useState(null);
-  const [slotBSrc, setSlotBSrc] = useState(null);
-
-  // Static cup image visibility (true when showing regular-cup.png)
-  const [showStaticCup, setShowStaticCup] = useState(true);
+  // Layer visibility state:
+  // activeSlot: primary front layer ('image' | 'A' | 'B')
+  // underlyingSlot: secondary underlying layer holding previous visual at 100% opacity ('image' | 'A' | 'B' | null)
+  const [activeSlot, setActiveSlot] = useState('image');
+  const [underlyingSlot, setUnderlyingSlot] = useState(null);
+  const activeSlotRef = useRef('image');
+  const underlyingSlotRef = useRef(null);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -135,61 +136,195 @@ export const MilkVisualization = ({
   onAnimationDoneRef.current = onAnimationDone;
 
   const currentPlayingStageRef = useRef(null);
+  const activeTurnIdRef = useRef(0);
+  const crossfadeTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (crossfadeTimerRef.current) {
+        clearTimeout(crossfadeTimerRef.current);
+      }
+    };
+  }, []);
+
+  /**
+   * Layer style calculator ensuring true underlying crossfade:
+   * The incoming layer transitions opacity from 0 -> 1 at zIndex 20.
+   * The outgoing layer REMAINS at opacity 1 at zIndex 10 until the crossfade finishes.
+   * This guarantees that the background is NEVER exposed at any point.
+   */
+  const getLayerStyle = useCallback((layerName) => {
+    const isActive = activeSlot === layerName;
+    const isUnderlying = underlyingSlot === layerName;
+    const isVisible = isActive || isUnderlying;
+
+    return {
+      opacity: isVisible ? 1 : 0,
+      zIndex: isActive ? 20 : (isUnderlying ? 10 : 1),
+      transition: 'opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+      pointerEvents: 'none'
+    };
+  }, [activeSlot, underlyingSlot]);
 
   /**
    * Seamless video player: alternates between Slot A and Slot B
    * to guarantee zero blank frame or flicker during source transition.
+   * Manages DOM video.src imperatively and synchronizes crossfading strictly
+   * after the first video frame is decoded and rendered.
    */
   const playVideoSource = useCallback((src, stageName) => {
     if (!src || isCold) return;
 
+    const turnId = ++activeTurnIdRef.current;
     setVideoError(false);
     setIsPlaying(true);
     currentPlayingStageRef.current = stageName;
 
-    // Determine target slot (opposite of current active slot)
-    const targetSlot = activeSlot === 'A' ? 'B' : 'A';
+    // Target slot is the opposite of currently visible video slot
+    const currentActive = activeSlotRef.current;
+    const targetSlot = currentActive === 'A' ? 'B' : 'A';
     const targetVideo = targetSlot === 'A' ? videoRefA.current : videoRefB.current;
 
-    if (targetSlot === 'A') {
-      setSlotASrc(src);
-    } else {
-      setSlotBSrc(src);
-    }
+    console.log(`[MilkVisualization] playVideoSource(turn=${turnId}) -> stage=${stageName}, slot=${targetSlot}, isLarge=${isLarge}, src=${src}`);
 
     if (targetVideo) {
+      targetVideo.defaultMuted = true;
+      targetVideo.muted = true;
+      targetVideo.playsInline = true;
       targetVideo.src = src;
       targetVideo.currentTime = 0;
-      targetVideo.muted = true;
-      targetVideo.play().catch((err) => {
-        console.warn(`[MilkVisualization] Slot ${targetSlot} play caught:`, err);
-        setIsPlaying(false);
-      });
+      targetVideo.load();
+
+      let frameRendered = false;
+      const onFrameReady = () => {
+        if (frameRendered || turnId !== activeTurnIdRef.current) return;
+        frameRendered = true;
+
+        console.log(`[MilkVisualization] First frame rendered for slot ${targetSlot} (stage=${stageName})`);
+
+        // Lock current visual at 100% opacity underneath at zIndex 10
+        const outgoing = activeSlotRef.current;
+        underlyingSlotRef.current = outgoing;
+        setUnderlyingSlot(outgoing);
+
+        // Incoming slot fades in at zIndex 20
+        activeSlotRef.current = targetSlot;
+        setActiveSlot(targetSlot);
+        setIsPlaying(true);
+
+        // After crossfade finishes, clear underlying layer and pause outgoing video
+        if (crossfadeTimerRef.current) clearTimeout(crossfadeTimerRef.current);
+        crossfadeTimerRef.current = setTimeout(() => {
+          if (turnId !== activeTurnIdRef.current) return;
+          underlyingSlotRef.current = null;
+          setUnderlyingSlot(null);
+
+          if (outgoing === 'A' && videoRefA.current) {
+            videoRefA.current.pause();
+          } else if (outgoing === 'B' && videoRefB.current) {
+            videoRefB.current.pause();
+          }
+        }, 240);
+      };
+
+      // 1. Preferred: requestVideoFrameCallback (Chrome, Safari, modern Firefox)
+      if ('requestVideoFrameCallback' in targetVideo) {
+        targetVideo.requestVideoFrameCallback(() => {
+          onFrameReady();
+        });
+      }
+
+      // 2. Secondary listener: timeupdate
+      const onTimeUpdate = () => {
+        if (targetVideo.currentTime > 0) {
+          targetVideo.removeEventListener('timeupdate', onTimeUpdate);
+          onFrameReady();
+        }
+      };
+      targetVideo.addEventListener('timeupdate', onTimeUpdate);
+
+      // 3. Fallback listener: playing + readyState >= 2
+      const onPlaying = () => {
+        targetVideo.removeEventListener('playing', onPlaying);
+        requestAnimationFrame(() => {
+          if (targetVideo.readyState >= 2) {
+            onFrameReady();
+          }
+        });
+      };
+      targetVideo.addEventListener('playing', onPlaying);
+
+      // 4. Safety maximum delay fallback
+      setTimeout(() => {
+        if (!frameRendered && turnId === activeTurnIdRef.current) {
+          onFrameReady();
+        }
+      }, 250);
+
+      const playPromise = targetVideo.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log(`[MilkVisualization] Slot ${targetSlot} play initiated successfully for ${stageName}`);
+          })
+          .catch((err) => {
+            console.warn(`[MilkVisualization] Slot ${targetSlot} play caught:`, err);
+            if (err.name !== 'AbortError') {
+              setIsPlaying(false);
+            }
+          });
+      }
     }
-  }, [activeSlot, isCold]);
+  }, [isCold, isLarge]);
 
   /**
-   * Slot onPlaying handler: swap activeSlot to the newly playing video
-   * and hide the previous video or static image cleanly.
+   * Reset to Static Cup (Regular cup initial appearance):
+   * Fades regular-cup.png in smoothly over current video slot.
    */
-  const handleSlotPlaying = useCallback((slotName) => {
-    setActiveSlot(slotName);
-    setShowStaticCup(false);
-    setIsPlaying(true);
+  const resetToStaticCup = useCallback(() => {
+    const turnId = ++activeTurnIdRef.current;
+    console.log(`[MilkVisualization] resetToStaticCup(turn=${turnId})`);
+    currentPlayingStageRef.current = 'reset';
+    setVisualStage('regular_empty');
+    setIsPlaying(false);
 
-    // Pause the other slot if running
-    const otherVideo = slotName === 'A' ? videoRefB.current : videoRefA.current;
-    if (otherVideo && !otherVideo.paused) {
-      otherVideo.pause();
-    }
+    const outgoing = activeSlotRef.current;
+    if (outgoing === 'image') return;
+
+    // Lock outgoing video at 100% opacity underneath at zIndex 10
+    underlyingSlotRef.current = outgoing;
+    setUnderlyingSlot(outgoing);
+
+    // Static cup image fades in at zIndex 20
+    activeSlotRef.current = 'image';
+    setActiveSlot('image');
+
+    if (crossfadeTimerRef.current) clearTimeout(crossfadeTimerRef.current);
+    crossfadeTimerRef.current = setTimeout(() => {
+      if (turnId !== activeTurnIdRef.current) return;
+      underlyingSlotRef.current = null;
+      setUnderlyingSlot(null);
+
+      const vA = videoRefA.current;
+      const vB = videoRefB.current;
+      if (vA) { vA.pause(); vA.currentTime = 0; }
+      if (vB) { vB.pause(); vB.currentTime = 0; }
+    }, 240);
   }, []);
 
   /**
    * Slot onEnded handler: pause at final frame and fire onAnimationDone
    */
   const handleSlotEnded = useCallback((slotName) => {
-    setIsPlaying(false);
+    // Only process end event if this slot is the active slot
+    if (slotName !== activeSlotRef.current) {
+      console.log(`[MilkVisualization] Ignoring onEnded from inactive slot ${slotName}`);
+      return;
+    }
+
     const stage = currentPlayingStageRef.current;
+    console.log(`[MilkVisualization] Slot ${slotName} onEnded fired (stage=${stage})`);
+    setIsPlaying(false);
 
     if (stage === 'size') {
       setVisualStage('large_empty');
@@ -215,39 +350,39 @@ export const MilkVisualization = ({
   useEffect(() => {
     if (isCold) return;
 
-    // 1. Reset or size changed to Regular
-    if (size === 'Regular' && (stepKey === 'size' || animStage === 'reset')) {
-      setShowStaticCup(true);
-      setVisualStage('regular_empty');
-      setIsPlaying(false);
-      const vA = videoRefA.current;
-      const vB = videoRefB.current;
-      if (vA) vA.pause();
-      if (vB) vB.pause();
-      return;
-    }
-
-    // 2. Size changed to Large on Step 1
-    if (size === 'Large' && stepKey === 'size') {
-      if (visualStage !== 'large_empty') {
-        playVideoSource(CAPPUCCINO_ASSETS.regularToLarge, 'size');
-      }
-      return;
-    }
-
-    // 3. Explicit animStage triggers from parent
+    // 1. Explicit animStage triggers from parent (touch or voice selection events)
     if (animTrigger && animTrigger !== lastProcessedTriggerRef.current) {
       lastProcessedTriggerRef.current = animTrigger;
 
-      if (animStage === 'espresso') {
+      if (animStage === 'size') {
+        playVideoSource(CAPPUCCINO_ASSETS.regularToLarge, 'size');
+        return;
+      } else if (animStage === 'reset') {
+        resetToStaticCup();
+        return;
+      } else if (animStage === 'espresso') {
         const espSrc = isLarge ? CAPPUCCINO_ASSETS.largeEspresso : CAPPUCCINO_ASSETS.regularEspresso;
         playVideoSource(espSrc, 'espresso');
+        return;
       } else if (animStage === 'milk') {
         const milkSrc = isLarge ? CAPPUCCINO_ASSETS.largeMilkPour : CAPPUCCINO_ASSETS.regularMilkPour;
         playVideoSource(milkSrc, 'milk');
+        return;
       }
     }
-  }, [size, stepKey, animStage, animTrigger, isLarge, isCold, visualStage, playVideoSource]);
+
+    // 2. Direct fallback for switching back to Regular while on Size step
+    if (size === 'Regular' && stepKey === 'size' && animStage === 'reset' && !isPlaying) {
+      resetToStaticCup();
+      return;
+    }
+
+    // 3. Fallback: Size changed to Large on Step 1 if not already triggered
+    if (size === 'Large' && stepKey === 'size' && visualStage !== 'large_empty' && !isPlaying && !animTrigger) {
+      playVideoSource(CAPPUCCINO_ASSETS.regularToLarge, 'size');
+      return;
+    }
+  }, [size, stepKey, animStage, animTrigger, isLarge, isCold, visualStage, isPlaying, playVideoSource, resetToStaticCup]);
 
   // Handle step jumping or ready state
   useEffect(() => {
@@ -257,26 +392,6 @@ export const MilkVisualization = ({
       setVisualStage('milk_finished');
     }
   }, [isReady, visualStage, isCold]);
-
-  // Manual replay button
-  const handleReplay = (e) => {
-    e.stopPropagation();
-    if (isCold) return;
-
-    if (stepKey === 'size') {
-      if (isLarge) {
-        playVideoSource(CAPPUCCINO_ASSETS.regularToLarge, 'size');
-      } else {
-        setShowStaticCup(true);
-      }
-    } else if (stepKey === 'strength' || visualStage === 'espresso_filled') {
-      const espSrc = isLarge ? CAPPUCCINO_ASSETS.largeEspresso : CAPPUCCINO_ASSETS.regularEspresso;
-      playVideoSource(espSrc, 'espresso');
-    } else if (stepKey === 'milk' || isReady || visualStage === 'milk_finished') {
-      const milkSrc = isLarge ? CAPPUCCINO_ASSETS.largeMilkPour : CAPPUCCINO_ASSETS.regularMilkPour;
-      playVideoSource(milkSrc, 'milk');
-    }
-  };
 
   // Touch / pointer drag for slight 3D perspective tilt
   const dragStartRef = useRef(0);
@@ -321,55 +436,41 @@ export const MilkVisualization = ({
         <div className="milk-vis-media-container">
           <div className="milk-vis-cup-assembly">
             {/* 1. Static Regular Cup (Initial State & Regular Size) */}
-            {showStaticCup && !videoError && (
-              <img
-                src={CAPPUCCINO_ASSETS.regularCup}
-                alt="Cappuccino Regular Cup"
-                className="milk-vis-video"
-                style={{ zIndex: 3 }}
-              />
-            )}
+            <img
+              src={CAPPUCCINO_ASSETS.regularCup}
+              alt="Cappuccino Regular Cup"
+              className="milk-vis-video"
+              style={getLayerStyle('image')}
+            />
 
             {/* 2. Video Slot A */}
             <video
               ref={videoRefA}
-              src={slotASrc || undefined}
               className="milk-vis-video"
               muted
               playsInline
               preload="auto"
-              onPlaying={() => handleSlotPlaying('A')}
               onEnded={() => handleSlotEnded('A')}
               onError={(e) => {
                 console.error('[MilkVisualization] Slot A video error:', e);
                 setVideoError(true);
               }}
-              style={{
-                opacity: activeSlot === 'A' && !showStaticCup ? 1 : 0,
-                zIndex: activeSlot === 'A' ? 2 : 1,
-                pointerEvents: 'none'
-              }}
+              style={getLayerStyle('A')}
             />
 
             {/* 3. Video Slot B */}
             <video
               ref={videoRefB}
-              src={slotBSrc || undefined}
               className="milk-vis-video"
               muted
               playsInline
               preload="auto"
-              onPlaying={() => handleSlotPlaying('B')}
               onEnded={() => handleSlotEnded('B')}
               onError={(e) => {
                 console.error('[MilkVisualization] Slot B video error:', e);
                 setVideoError(true);
               }}
-              style={{
-                opacity: activeSlot === 'B' && !showStaticCup ? 1 : 0,
-                zIndex: activeSlot === 'B' ? 2 : 1,
-                pointerEvents: 'none'
-              }}
+              style={getLayerStyle('B')}
             />
 
             {/* Fallback Image on Error */}
@@ -447,58 +548,6 @@ export const MilkVisualization = ({
         </div>
       )}
 
-      {/* =========================================================================
-          TOP OVERLAYS: INGREDIENT BADGE, PRICE PILL, REPLAY ACTION
-          ========================================================================= */}
-
-      {/* Top Left: Active Ingredient & Size Badge */}
-      <div className="milk-vis-pill milk-vis-pill--left">
-        <span
-          className="milk-vis-dot"
-          style={{
-            backgroundColor: stepKey !== 'size' ? currentMilk.colorHex : '#A89F91'
-          }}
-        />
-        <span className="milk-vis-pill-text">
-          {stepKey === 'size' && (isCold ? (isLarge ? 'Highball Glass • Large (450ml)' : 'Highball Glass • Regular (350ml)') : (isLarge ? 'Glass Cup • Large (350ml)' : 'Glass Cup • Regular (240ml)'))}
-          {stepKey === 'strength' && `Espresso (${strength})`}
-          {stepKey === 'milk' && currentMilk.label}
-          {stepKey === 'sweetness' && (isCold ? `Chilled • ${sweetness}` : `Latte Art • ${sweetness}`)}
-          {(stepKey === 'ready' || isReady) && 'Ready to Serve'}
-        </span>
-      </div>
-
-      {/* Top Right: Product Name & Price Pill + Replay Button */}
-      <div className="milk-vis-top-right">
-        {unitPrice != null && (
-          <div className="milk-vis-price-pill">
-            <span className="text-[10px] font-black uppercase tracking-wider text-navy truncate max-w-[110px]">
-              {productName}
-            </span>
-            <span className="text-xs font-black text-navy">
-              ₹{unitPrice}
-            </span>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={handleReplay}
-          className="milk-vis-replay-action"
-          title="Replay step animation"
-          aria-label="Replay animation"
-        >
-          <RotateCcw className={`w-3.5 h-3.5 ${isPlaying ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
-
-      {/* =========================================================================
-          LAYER 2: FLOATING AI CASHIER CUSTOMIZATION CARD (Overlaid at Lower Portion)
-          ========================================================================= */}
-      {children && (
-        <div className="milk-vis-floating-card-slot">
-          {children}
-        </div>
-      )}
     </div>
   );
 };

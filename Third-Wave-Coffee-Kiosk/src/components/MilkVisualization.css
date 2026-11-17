@@ -8,8 +8,6 @@
   position: relative;
   width: 100%;
   height: 100%;
-  flex: 1 1 0%;
-  min-height: 500px;
   border-radius: 1.5rem;
   background: url('/craft/cafe_extended_scene.jpg') no-repeat top center / cover,
               radial-gradient(circle at 50% 25%, #FAF5ED 0%, #EDE4D6 45%, #D4C4B0 75%, #C8B8A4 100%);
@@ -19,12 +17,6 @@
   user-select: none;
   display: flex;
   flex-direction: column;
-}
-
-@media (min-width: 640px) {
-  .milk-vis-stage {
-    min-height: 540px;
-  }
 }
 
 /* =========================================================================
@@ -39,6 +31,7 @@
   height: 100%;
   overflow: hidden;
   z-index: 1;
+  background-color: #1a1410;
 }
 
 .milk-vis-cup-assembly {
@@ -49,6 +42,9 @@
   align-items: center;
   justify-content: center;
   will-change: transform;
+  transform: scale(1.025);
+  transform-origin: center 48%;
+  background-color: #1a1410;
 }
 
 .milk-vis-video {
@@ -58,10 +54,10 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center top;
+  object-position: center 48%;
   display: block;
   pointer-events: none;
-  transition: opacity 0.25s ease-in-out;
+  background-color: transparent;
 }
 
 .milk-vis-fallback-img {
@@ -71,7 +67,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center top;
+  object-position: center 48%;
   pointer-events: none;
   transition: opacity 0.3s ease, filter 0.4s ease;
 }
@@ -79,7 +75,7 @@
 /* Rising steam animation */
 .milk-vis-steam-overlay {
   position: absolute;
-  top: 8%;
+  top: 40%;
   left: 50%;
   transform: translateX(-50%);
   width: 80px;
@@ -353,24 +349,4 @@
   transform: scale(0.92);
 }
 
-/* =========================================================================
-   LAYER 2: FLOATING CARD & QUANTITY SLOT
-   Floats over the extended marble counter background
-   ========================================================================= */
-.milk-vis-floating-card-slot {
-  position: absolute;
-  bottom: 1.25rem;
-  left: 0.75rem;
-  right: 0.75rem;
-  z-index: 25;
-  display: flex;
-  flex-direction: column;
-}
 
-@media (min-width: 640px) {
-  .milk-vis-floating-card-slot {
-    bottom: 1.5rem;
-    left: 1rem;
-    right: 1rem;
-  }
-}
