@@ -236,23 +236,23 @@ export const CartScreen = () => {
 
       {/* Sticky Bottom Actions inside Portrait Kiosk */}
       {cart.length > 0 && (
-        <footer className="sticky bottom-0 z-30 w-full bg-cream-100/95 backdrop-blur-md border-t border-beige-muted/80 px-4 py-3 shadow-lg space-y-2 shrink-0">
+        <footer className="sticky bottom-0 z-30 w-full bg-cream-100/95 backdrop-blur-md border-t border-beige-muted/80 px-4 py-3 shadow-lg flex items-center gap-3 shrink-0">
           <button
             type="button"
             onClick={handlePayNow}
-            className="w-full py-3.5 rounded-xl bg-navy hover:bg-navy-charcoal active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-kiosk border border-navy transition-all"
+            className="flex-1 h-12 px-3 rounded-xl bg-navy hover:bg-navy-charcoal active:scale-[0.98] text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-kiosk border border-navy transition-all"
           >
-            <CreditCard className="w-4 h-4 text-white" />
-            <span>PAY NOW • ₹{cartTotals.totalPayable}</span>
+            <CreditCard className="w-4 h-4 text-white shrink-0" />
+            <span className="truncate">PAY NOW • ₹{cartTotals.totalPayable}</span>
           </button>
 
           <button
             type="button"
             onClick={() => navigateTo('wallet_topup')}
-            className="w-full py-2.5 rounded-xl bg-white hover:bg-cream-200 active:scale-[0.98] border border-beige-muted text-navy text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-sm"
+            className="flex-1 h-12 px-3 rounded-xl bg-white hover:bg-cream-200 active:scale-[0.98] border border-beige-muted text-navy text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-sm"
           >
-            <Wallet className="w-3.5 h-3.5 text-navy" />
-            <span>LOAD THIRD WAVE WALLET</span>
+            <Wallet className="w-3.5 h-3.5 text-navy shrink-0" />
+            <span className="truncate">LOAD THIRD WAVE WALLET</span>
           </button>
         </footer>
       )}
