@@ -110,6 +110,7 @@ export const VoiceBaristaProvider = ({ children }) => {
   const activeTurnIdRef = useRef(0);
   const activeSessionIdRef = useRef(null);
   const prevScreenRef = useRef(kiosk.currentScreen);
+  const isVoiceNavigatingRef = useRef(false);
   const handleStopListeningRef = useRef(null);
   const handleStartListeningRef = useRef(null);
   const processCustomerMessageRef = useRef(null);
@@ -122,6 +123,7 @@ export const VoiceBaristaProvider = ({ children }) => {
     let isMounted = true;
     const initialId = `twc-${Math.random().toString(36).substr(2, 8)}`;
     activeSessionIdRef.current = initialId;
+    window.__TWC_SESSION_ID__ = initialId;
     setSessionId(initialId);
     kiosk.setMobileNumber('');
 
@@ -132,7 +134,7 @@ export const VoiceBaristaProvider = ({ children }) => {
           kiosk.setMobileNumber(data.mobile_number);
         }
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     return () => {
       isMounted = false;
@@ -149,11 +151,29 @@ export const VoiceBaristaProvider = ({ children }) => {
       return;
     }
 
-    const { actions = [], active_screen, cart: backendCart, mobile_number } = response;
+    const {
+      actions = [],
+      active_screen,
+      cart: backendCart,
+      mobile_number,
+      is_registered,
+      wallet_balance,
+      preferred_payment_method
+    } = response;
+    let navigated = false;
 
-    // Sync canonical mobile number from backend response if returned
+    // Sync canonical mobile number and customer profile from backend response if returned
     if (mobile_number !== undefined && mobile_number !== null) {
       kiosk.setMobileNumber(mobile_number);
+    }
+    if (is_registered !== undefined && kiosk.setIsRegistered) {
+      kiosk.setIsRegistered(is_registered);
+    }
+    if (wallet_balance !== undefined && kiosk.setWalletBalance) {
+      kiosk.setWalletBalance(wallet_balance);
+    }
+    if (preferred_payment_method !== undefined && kiosk.setPreferredPaymentMethod) {
+      kiosk.setPreferredPaymentMethod(preferred_payment_method);
     }
 
     // 1. Specific UI Actions
@@ -164,7 +184,7 @@ export const VoiceBaristaProvider = ({ children }) => {
         screen: act.screen,
       });
 
-      if (act.ui_action === 'await_number_confirmation') {
+      if (act.ui_action === 'await_number_confirmation' || act.ui_action === 'stage_mobile') {
         setIsAwaitingConfirmation(true);
         if (act.mobile_number) {
           kiosk.setMobileNumber(act.mobile_number);
@@ -174,16 +194,22 @@ export const VoiceBaristaProvider = ({ children }) => {
         if (act.mobile_number) {
           kiosk.setMobileNumber(act.mobile_number);
         }
+        navigated = true;
+        isVoiceNavigatingRef.current = true;
         kiosk.navigateTo('categories');
       } else if (act.ui_action === 'clear_mobile') {
         setIsAwaitingConfirmation(false);
         kiosk.setMobileNumber('');
       } else if (act.ui_action === 'open_customization' && act.product) {
+        navigated = true;
+        isVoiceNavigatingRef.current = true;
         const prod = PRODUCTS.find((p) => p.id === act.product.id) || act.product;
         kiosk.openCustomization(prod, act.step_index || 0);
         if (act.customization_payload) {
           kiosk.syncCustomization({
             stepIndex: act.customization_payload.step_index || 0,
+            selectedStep: act.customization_payload.selected_step,
+            selectedOption: act.customization_payload.selected_option,
             size: act.customization_payload.size,
             strength: act.customization_payload.strength,
             milk: act.customization_payload.milk,
@@ -197,6 +223,8 @@ export const VoiceBaristaProvider = ({ children }) => {
       } else if (act.ui_action === 'update_customization') {
         kiosk.syncCustomization({
           stepIndex: act.step_index !== undefined ? act.step_index : 0,
+          selectedStep: act.selected_step,
+          selectedOption: act.selected_option,
           size: act.size,
           strength: act.strength,
           milk: act.milk,
@@ -212,16 +240,53 @@ export const VoiceBaristaProvider = ({ children }) => {
         if (act.item) {
           kiosk.addToCart(act.item);
         }
-        kiosk.navigateTo('menu');
+        if (act.screen && act.screen !== 'menu') {
+          navigated = true;
+          isVoiceNavigatingRef.current = true;
+          kiosk.navigateTo(act.screen);
+        } else if (kiosk.currentScreen === 'cart' || active_screen === 'cart') {
+          // If customer is on cart screen, stay on cart screen!
+          navigated = true;
+        } else {
+          navigated = true;
+          isVoiceNavigatingRef.current = true;
+          kiosk.navigateTo('menu');
+        }
+      } else if (act.ui_action === 'update_cart' || act.ui_action === 'remove_from_cart') {
+        const cartItems = (backendCart && Array.isArray(backendCart.items))
+          ? backendCart.items
+          : (Array.isArray(act.cart) ? act.cart : null);
+        if (cartItems) {
+          kiosk.setCart(cartItems);
+        }
+        if (backendCart?.recommendations && kiosk.setRecommendations) {
+          kiosk.setRecommendations(backendCart.recommendations);
+        }
+      } else if (act.ui_action === 'order_confirmed') {
+        navigated = true;
+        isVoiceNavigatingRef.current = true;
+        if (act.order) {
+          kiosk.setLastOrder(act.order);
+          if (act.order.walletBalanceAfter !== undefined) {
+            kiosk.setWalletBalance(act.order.walletBalanceAfter);
+          }
+        }
+        kiosk.setCart([]);
+        kiosk.navigateTo('order_confirmed');
       } else if (act.ui_action === 'open_category' && act.category) {
+        navigated = true;
+        isVoiceNavigatingRef.current = true;
         kiosk.openCategory(act.category, act.subcategory);
       } else if (act.ui_action === 'navigate' && act.screen) {
+        navigated = true;
+        isVoiceNavigatingRef.current = true;
         kiosk.navigateTo(act.screen);
       }
     }
 
     // 2. Screen navigation following backend's active_screen
-    if (active_screen && active_screen !== kiosk.currentScreen) {
+    if (!navigated && active_screen && active_screen !== kiosk.currentScreen) {
+      isVoiceNavigatingRef.current = true;
       if (active_screen === 'menu' && kiosk.currentScreen !== 'menu') {
         kiosk.navigateTo('menu');
       } else if (active_screen === 'cart' && kiosk.currentScreen !== 'cart') {
@@ -230,12 +295,20 @@ export const VoiceBaristaProvider = ({ children }) => {
         kiosk.navigateTo('categories');
       } else if (active_screen === 'mobile' && kiosk.currentScreen !== 'mobile') {
         kiosk.navigateTo('mobile');
+      } else if (active_screen === 'order_confirmed' && kiosk.currentScreen !== 'order_confirmed') {
+        kiosk.navigateTo('order_confirmed');
+      } else if (active_screen === 'customization' && kiosk.currentScreen !== 'customization') {
+        const prod = kiosk.selectedProduct || PRODUCTS.find(p => p.id === 'cappuccino');
+        kiosk.openCustomization(prod, 0);
       }
     }
 
-    // 3. Sync cart items if provided
+    // 3. Sync cart items and dynamic recommendations if provided
     if (backendCart && Array.isArray(backendCart.items)) {
       kiosk.setCart(backendCart.items);
+      if (backendCart.recommendations && kiosk.setRecommendations) {
+        kiosk.setRecommendations(backendCart.recommendations);
+      }
     }
   }, [kiosk]);
 
@@ -291,12 +364,9 @@ export const VoiceBaristaProvider = ({ children }) => {
 
     // If customer was speaking digits on mobile screen, ensure normalized value is updated
     if (kiosk.currentScreen === 'mobile' && !isAwaitingConfirmationRef.current) {
-      const lower = (customerText || '').toLowerCase();
-      if (!lower.includes('skip') && !lower.includes('guest')) {
-        const digits = convertSpokenTextToDigits(customerText);
-        if (digits) {
-          kiosk.setMobileNumber(digits.slice(0, 10));
-        }
+      const digits = convertSpokenTextToDigits(customerText);
+      if (digits && digits.length >= 10) {
+        kiosk.setMobileNumber(digits.slice(0, 10));
       }
     }
 
@@ -343,29 +413,40 @@ export const VoiceBaristaProvider = ({ children }) => {
       const replyText = resp.response || "Here's what I found for you!";
       setAssistantReply(replyText);
 
-      // Execute UI actions (navigation, cart updates, drink customizer, confirmation)
+      // Execute UI actions immediately upon response arrival (no navigation deferral)
       handleAssistantActions(resp);
 
-      // Check if this response is asking to add cappuccino to cart
+      // Check if this response is asking to add cappuccino to cart or offering recommendation
       // If so, defer voice prompt until the milk pour video has completed
-      const isCartConfirmQuestion = (resp.response || '').toLowerCase().includes('add this to your cart');
-      const isCappuccinoCustomization = kiosk.selectedProduct && 
+      const lowerReply = (resp.response || '').toLowerCase();
+      const isPostPrepPrompt = lowerReply.includes('add this to your cart') ||
+                               lowerReply.includes('goes really well with your');
+      const isCappuccinoCustomization = kiosk.selectedProduct &&
         (kiosk.selectedProduct.id === 'cappuccino' || (kiosk.selectedProduct.name || '').toLowerCase().includes('cappuccino'));
 
-      if (isCartConfirmQuestion && isCappuccinoCustomization) {
-        console.log('[VoiceBarista] Holding cart confirmation prompt until milk animation finishes.');
+      if (isPostPrepPrompt && isCappuccinoCustomization) {
+        console.log('[VoiceBarista] Holding post-prep recommendation prompt until milk animation finishes.');
         return;
       }
 
       // Synthesize and play Kokoro TTS
       const speakText = resp.speakable_response || replyText;
+      if (!speakText || !speakText.trim()) {
+        if (resp.active_screen === 'order_confirmed') {
+          setVoiceState('idle');
+          setErrorMessage(null);
+        } else {
+          handleStartListeningRef.current?.({ isBargeIn: false });
+        }
+        return;
+      }
+
       try {
         logVoiceEvent('NEW_TTS_STARTED', {
           textLength: speakText.length,
           preview: speakText.slice(0, 60),
         });
 
-        startInterruptionDetection();
         const audioBlob = await fetchTTSAudio(speakText);
         if (currentTurn !== activeTurnIdRef.current) return;
 
@@ -387,7 +468,14 @@ export const VoiceBaristaProvider = ({ children }) => {
           },
           onError: (err) => {
             console.warn('[VoiceBarista] Audio playback warning:', err);
-            if (currentTurn === activeTurnIdRef.current) setVoiceState('idle');
+            if (currentTurn === activeTurnIdRef.current) {
+              if (resp.active_screen === 'order_confirmed') {
+                setVoiceState('idle');
+                setErrorMessage(null);
+              } else {
+                handleStartListeningRef.current?.({ isBargeIn: false });
+              }
+            }
           },
         });
       } catch (ttsErr) {
@@ -430,10 +518,10 @@ export const VoiceBaristaProvider = ({ children }) => {
   // Session lifecycle: cleanly renew customer session and purge previous context
   const renewSession = useCallback((reason = 'reset') => {
     if (sessionId) {
-      endSession(sessionId, reason).catch(() => {});
+      endSession(sessionId, reason).catch(() => { });
     }
     stopSpeaking();
-    stopRecording().catch(() => {});
+    stopRecording().catch(() => { });
     setSessionActive(false);
     setHasGreeted(false);
     setVoiceState('idle');
@@ -445,6 +533,7 @@ export const VoiceBaristaProvider = ({ children }) => {
     kiosk.setMobileNumber('');
     const freshId = `twc-${Math.random().toString(36).substr(2, 8)}`;
     activeSessionIdRef.current = freshId;
+    window.__TWC_SESSION_ID__ = freshId;
     setSessionId(freshId);
     return freshId;
   }, [sessionId, kiosk]);
@@ -465,9 +554,10 @@ export const VoiceBaristaProvider = ({ children }) => {
     // Generate and initialize fresh session ID for this customer interaction
     const freshId = `twc-${Math.random().toString(36).substr(2, 8)}`;
     activeSessionIdRef.current = freshId;
+    window.__TWC_SESSION_ID__ = freshId;
     setSessionId(freshId);
     kiosk.setMobileNumber('');
-    startSession(freshId).catch(() => {});
+    startSession(freshId).catch(() => { });
 
     const currentTurn = ++activeTurnIdRef.current;
     setSessionActive(true);
@@ -526,9 +616,12 @@ export const VoiceBaristaProvider = ({ children }) => {
       const prev = prevScreenRef.current;
       prevScreenRef.current = kiosk.currentScreen;
 
-      // Stop listening if user navigated by touch
-      if (voiceState === 'listening') {
-        stopRecording().catch(() => {});
+      const wasVoiceNav = isVoiceNavigatingRef.current;
+      isVoiceNavigatingRef.current = false;
+
+      // Stop listening only if user navigated away by manual touch (not voice-driven navigation)
+      if (!wasVoiceNav && voiceState === 'listening') {
+        stopRecording().catch(() => { });
         setVoiceState('idle');
         setErrorMessage(null);
       }
@@ -537,7 +630,7 @@ export const VoiceBaristaProvider = ({ children }) => {
       if (kiosk.currentScreen === 'welcome') {
         stopSpeaking();
         if (sessionId) {
-          endSession(sessionId, 'returned_to_welcome').catch(() => {});
+          endSession(sessionId, 'returned_to_welcome').catch(() => { });
         }
         setSessionActive(false);
         setHasGreeted(false);
@@ -573,7 +666,7 @@ export const VoiceBaristaProvider = ({ children }) => {
           if (data && data.page_prompt) {
             setPageHint(data.page_prompt);
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
   }, [kiosk.currentScreen, kiosk.selectedMainCategory, kiosk.selectedProduct, sessionId, voiceState]);
@@ -608,7 +701,7 @@ export const VoiceBaristaProvider = ({ children }) => {
   const handleCancelListening = useCallback(async () => {
     try {
       await stopRecording();
-    } catch (_) {}
+    } catch (_) { }
     setVoiceState('idle');
   }, []);
 
@@ -663,7 +756,6 @@ export const VoiceBaristaProvider = ({ children }) => {
     setAssistantReply(text);
     const currentTurn = ++activeTurnIdRef.current;
     try {
-      startInterruptionDetection();
       const audioBlob = await fetchTTSAudio(text);
       if (currentTurn !== activeTurnIdRef.current) return;
       setVoiceState('speaking');
@@ -678,7 +770,9 @@ export const VoiceBaristaProvider = ({ children }) => {
         },
         onError: (err) => {
           console.warn('[VoiceBarista] Audio playback warning:', err);
-          if (currentTurn === activeTurnIdRef.current) setVoiceState('idle');
+          if (currentTurn === activeTurnIdRef.current) {
+            handleStartListeningRef.current?.({ isBargeIn: false });
+          }
         }
       });
     } catch (err) {

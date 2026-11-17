@@ -252,6 +252,12 @@ class CustomizationSession:
         self.pending_confirmation = False
         self.is_completed = False
         self.answered_step_indices = set()
+        self.last_selected_step = None
+        self.last_selected_option = None
+        self.pending_recommendation = None
+        self.recommendation_state = "none"  # "none" | "offered" | "accepted" | "declined"
+        self._turn_selected_step = None
+        self._turn_selected_option = None
 
         # Pre-populate selections with reference defaults
         self.selections = {
@@ -285,10 +291,18 @@ class CustomizationSession:
 
         sugar_val = self.selections.get("sugar") or self.selections.get("sweetness") or "Regular Sugar"
 
+        selected_step = getattr(self, "_turn_selected_step", None)
+        selected_option = getattr(self, "_turn_selected_option", None)
+        # Clear turn-specific flags so they do not leak into subsequent conversational turns
+        self._turn_selected_step = None
+        self._turn_selected_option = None
+
         return {
             "ui_action": "update_customization",
             "step_index": min(self.current_step_index, len(self.steps) - 1),
             "step_key": self.current_step["key"] if self.current_step else ("milk" if is_cappuccino_product(self.product) else "sweetness"),
+            "selected_step": selected_step,
+            "selected_option": selected_option,
             "size": self.selections.get("size", "Regular"),
             "temperature": self.selections.get("temperature", "Hot"),
             "strength": self.selections.get("strength", "Double Shot"),
@@ -299,6 +313,9 @@ class CustomizationSession:
             "total_price": total_p,
             "pending_confirmation": self.pending_confirmation,
             "is_completed": self.is_completed,
+            "is_confirmed_review": self.pending_confirmation,
+            "pending_recommendation": self.pending_recommendation,
+            "recommendation_state": self.recommendation_state,
             "product_id": self.product.get("id"),
             "product_name": self.product.get("name"),
         }
@@ -348,8 +365,12 @@ class CustomizationSession:
         if "quantity" in payload and payload["quantity"]:
             self.quantity = max(1, int(payload["quantity"]))
             self.selections["quantity"] = self.quantity
-        if payload.get("pending_confirmation"):
-            self.pending_confirmation = True
+        if payload.get("pending_confirmation") is not None:
+            self.pending_confirmation = bool(payload["pending_confirmation"])
+        elif payload.get("isConfirmedReview") is not None:
+            self.pending_confirmation = bool(payload["isConfirmedReview"])
+        if payload.get("recommendation_state"):
+            self.recommendation_state = payload["recommendation_state"]
 
     def process_spoken_turn(
         self,
@@ -368,6 +389,91 @@ class CustomizationSession:
         - Adds to cart only after confirmation.
         """
         clean_text = user_text.lower().strip()
+
+        # CASE 0: Customer response to Barista Recommendation (Pairs Well With cross-sell)
+        if self.recommendation_state == "offered" and self.pending_recommendation:
+            rec_decision = semantic_resolver.resolve_recommendation(
+                user_utterance=user_text,
+                coffee_product=self.product,
+                recommended_product=self.pending_recommendation,
+                conversation_history=context.get("conversation_history"),
+            )
+
+            rec_name = self.pending_recommendation.get("name", "pastry")
+
+            if rec_decision.intent == "accept":
+                # Add the recommended item through authoritative backend cart service
+                cart_res = add_item_to_cart(
+                    context=context,
+                    product_id_or_name=self.pending_recommendation["id"],
+                    quantity=1,
+                    idempotency_key=context.get("current_idempotency_key"),
+                )
+                self.recommendation_state = "accepted"
+                self.pending_recommendation = None
+                reply = f"Perfect! I've added the {rec_name} to your order."
+                return {
+                    "reply": reply,
+                    "screen": "customization",
+                    "data": {
+                        "ui_action": "update_cart",
+                        "cart": cart_res.get("cart", []),
+                        "totals": cart_res.get("totals", {}),
+                        "recommendation_state": "accepted",
+                        "pending_recommendation": None,
+                        "is_confirmed_review": True,
+                    },
+                    "cart": cart_res.get("cart", []),
+                    "totals": cart_res.get("totals", {}),
+                    "completed": False,
+                }
+
+            elif rec_decision.intent == "decline":
+                self.recommendation_state = "declined"
+                self.pending_recommendation = None
+                reply = "No problem! You can explore the other recommendations whenever you like."
+                return {
+                    "reply": reply,
+                    "screen": "customization",
+                    "data": {
+                        "ui_action": None,
+                        "recommendation_state": "declined",
+                        "pending_recommendation": None,
+                        "is_confirmed_review": True,
+                    },
+                    "completed": False,
+                }
+
+            elif rec_decision.intent == "question":
+                rec_price = self.pending_recommendation.get("price", 0)
+                reply = rec_decision.assistant_reply or f"The {rec_name} is ₹{rec_price}. Would you like me to add it?"
+                return {
+                    "reply": reply,
+                    "screen": "customization",
+                    "data": {
+                        "ui_action": None,
+                        "recommendation_state": "offered",
+                        "pending_recommendation": self.pending_recommendation,
+                        "is_confirmed_review": True,
+                    },
+                    "completed": False,
+                }
+
+            elif rec_decision.intent == "ambiguous":
+                reply = rec_decision.assistant_reply or f"Would you like me to add the {rec_name} to your order, or would you prefer something else?"
+                return {
+                    "reply": reply,
+                    "screen": "customization",
+                    "data": {
+                        "ui_action": None,
+                        "recommendation_state": "offered",
+                        "pending_recommendation": self.pending_recommendation,
+                        "is_confirmed_review": True,
+                    },
+                    "completed": False,
+                }
+
+            # If modify_customization or add_coffee, fall through to respective handlers below
 
         # CASE 1: Pending Confirmation
         if self.pending_confirmation:
@@ -467,6 +573,10 @@ class CustomizationSession:
                         self.selections["sweetness"] = opt_id
 
                     self.answered_step_indices.add(matched_step_idx)
+                    self.last_selected_step = matched_step_key
+                    self.last_selected_option = opt_id
+                    self._turn_selected_step = matched_step_key
+                    self._turn_selected_option = opt_id
                     update_notes.append(f"Updated to {opt_display_name}.")
                     price_statements.append(calculate_step_price_statement(matched_step_key, matched_opt))
 
@@ -482,7 +592,10 @@ class CustomizationSession:
                 }
 
         # Explicit customer command to add to cart directly:
-        if any(w in clean_text for w in ["add to cart", "add to my cart", "add to tray", "add it to my cart", "add it to tray", "add this to my cart", "add this to tray", "please add it"]):
+        if (
+            any(w in clean_text for w in ["add to cart", "add to my cart", "add to tray", "add it to my cart", "add it to tray", "add this to my cart", "add this to tray", "please add it", "add coffee"])
+            or ("add" in clean_text and ("cart" in clean_text or "tray" in clean_text))
+        ):
             configured = validate_and_configure_item(
                 product=self.product,
                 size=self.selections.get("size"),
@@ -563,6 +676,10 @@ class CustomizationSession:
                     self.selections["sweetness"] = opt_id
 
                 self.answered_step_indices.add(matched_step_idx)
+                self.last_selected_step = matched_step_key
+                self.last_selected_option = opt_id
+                self._turn_selected_step = matched_step_key
+                self._turn_selected_option = opt_id
                 price_statements.append(calculate_step_price_statement(matched_step_key, matched_opt))
 
             combined_price_stmt = " ".join(price_statements)
@@ -585,14 +702,34 @@ class CustomizationSession:
                     "completed": False,
                 }
             else:
-                # All steps have been answered! Present final review & ask for confirmation
+                # All steps have been answered! Present final review & check for Pairs Well With recommendation
                 self.pending_confirmation = True
                 self.current_step_index = len(self.steps) - 1
-                if is_cappuccino_product(self.product):
-                    reply = "Would you like me to add this to your cart?"
+
+                # Find first available recommendation from PASTRY_RECOMMENDATIONS
+                try:
+                    from catalog import PASTRY_RECOMMENDATIONS
+                except ImportError:
+                    from backend.catalog import PASTRY_RECOMMENDATIONS
+
+                cart_item_ids = {i.get("productId") or i.get("id") for i in context.get("cart", [])}
+                rec_item = next((p for p in PASTRY_RECOMMENDATIONS if p["id"] not in cart_item_ids), None)
+                if not rec_item and PASTRY_RECOMMENDATIONS:
+                    rec_item = PASTRY_RECOMMENDATIONS[0]
+
+                if rec_item and self.recommendation_state == "none":
+                    self.pending_recommendation = rec_item
+                    self.recommendation_state = "offered"
+                    coffee_name = self.product.get("name", "coffee")
+                    rec_name = rec_item.get("name", "pastry")
+                    reply = f"This goes really well with your {coffee_name}. Would you like me to add {rec_name} to your order?"
                 else:
-                    summary_msg, _ = build_confirmation_summary(self.product, self.selections, self.quantity)
-                    reply = f"{combined_price_stmt} {summary_msg}".strip()
+                    if is_cappuccino_product(self.product):
+                        reply = "Would you like me to add this to your cart?"
+                    else:
+                        summary_msg, _ = build_confirmation_summary(self.product, self.selections, self.quantity)
+                        reply = f"{combined_price_stmt} {summary_msg}".strip()
+
                 return {
                     "reply": reply,
                     "screen": "customization",
@@ -605,20 +742,24 @@ class CustomizationSession:
         # CASE 3: Needs clarification
         if res.decision == "needs_clarification":
             reply = res.clarification_question or f"Could you clarify what you would prefer for {curr_step['label']}?"
+            payload = self.get_ui_payload()
+            payload["ui_action"] = None  # Do NOT emit update_customization on clarification
             return {
                 "reply": reply,
                 "screen": "customization",
-                "data": self.get_ui_payload(),
+                "data": payload,
                 "completed": False,
             }
 
         # CASE 4: Conversational question / chat
         if res.decision == "conversation":
             reply = f"{res.assistant_reply} Now, {curr_step['question']}" if res.assistant_reply else curr_step['question']
+            payload = self.get_ui_payload()
+            payload["ui_action"] = None  # Do NOT emit update_customization on conversation
             return {
                 "reply": reply,
                 "screen": "customization",
-                "data": self.get_ui_payload(),
+                "data": payload,
                 "completed": False,
             }
 
@@ -635,10 +776,12 @@ class CustomizationSession:
             f"I didn't quite catch that. For {curr_step['label']}, you can choose: {options_hint}. "
             f"{curr_step['question']}"
         )
+        payload = self.get_ui_payload()
+        payload["ui_action"] = None  # Do NOT emit update_customization on unrecognized fallback
         return {
             "reply": reply,
             "screen": "customization",
-            "data": self.get_ui_payload(),
+            "data": payload,
             "completed": False,
         }
 
